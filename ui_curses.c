@@ -2139,8 +2139,9 @@ static void main_loop(void)
 		fd_set set;
 		struct timeval tv;
 		int poll_mixer = 0;
-		int i, nr_fds = 0;
-		int fds[NR_MIXER_FDS];
+		int i;
+		int nr_fds_vol = 0, fds_vol[NR_MIXER_FDS];
+		int nr_fds_out = 0, fds_out[NR_MIXER_FDS];
 		struct list_head *item;
 		struct client *client;
 
@@ -2175,16 +2176,22 @@ static void main_loop(void)
 			SELECT_ADD_FD(client->fd);
 		}
 		if (!soft_vol) {
-			nr_fds = mixer_get_fds(fds);
-			if (nr_fds <= 0) {
+			nr_fds_vol = mixer_get_fds(MIXER_FDS_VOLUME, fds_vol);
+			if (nr_fds_vol <= 0) {
 				poll_mixer = 1;
 				if (!tv.tv_usec)
 					tv.tv_usec = 500e3;
 			}
-			for (i = 0; i < nr_fds; i++) {
-				BUG_ON(fds[i] <= 0);
-				SELECT_ADD_FD(fds[i]);
+			for (i = 0; i < nr_fds_vol; i++) {
+				BUG_ON(fds_vol[i] <= 0);
+				SELECT_ADD_FD(fds_vol[i]);
 			}
+		}
+
+		nr_fds_out = mixer_get_fds(MIXER_FDS_OUTPUT, fds_out);
+		for (i = 0; i < nr_fds_out; i++) {
+			BUG_ON(fds_out[i] <= 0);
+			SELECT_ADD_FD(fds_out[i]);
 		}
 
 		rc = select(fd_high + 1, &set, NULL, NULL, tv.tv_usec ? &tv : NULL);
@@ -2208,12 +2215,22 @@ static void main_loop(void)
 			continue;
 		}
 
-		for (i = 0; i < nr_fds; i++) {
-			if (FD_ISSET(fds[i], &set)) {
+		for (i = 0; i < nr_fds_vol; i++) {
+			if (FD_ISSET(fds_vol[i], &set)) {
 				d_print("vol changed\n");
 				mixer_read_volume();
 				mpris_volume_changed();
 				update_statusline();
+			}
+		}
+		for (i = 0; i < nr_fds_out; i++) {
+			if (FD_ISSET(fds_out[i], &set)) {
+				d_print("out changed\n");
+				if (pause_on_output_change) {
+					player_pause_playback();
+					update_statusline();
+				}
+				clear_pipe(fds_out[i], -1);
 			}
 		}
 		if (FD_ISSET(server_socket, &set))
