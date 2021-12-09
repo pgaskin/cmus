@@ -1,3 +1,10 @@
+cmus (2.9.1+git20211209.exp.b4a917c-1) unstable; urgency=medium
+
+  * Update to upstream master.
+  * Merge pgaskin/pause-on-output-change.
+
+ -- Patrick Gaskin <patrick@pgaskin.net>  Tue, 09 Dec 2021 17:55:07 -0400
+
 cmus (2.9.1+git20210608.exp.462f7da-1) unstable; urgency=medium
 
   * Update pgaskin/remove-cache-with-track.
