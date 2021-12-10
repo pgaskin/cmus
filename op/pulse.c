@@ -39,6 +39,7 @@ static int			 mixer_notify_out;
 static int			 mixer_notify_output_in;
 static int			 mixer_notify_output_out;
 static long 			 pa_last_output_idx;
+static long 			 pa_last_output_port;
 
 /* configuration */
 static int pa_restore_volume = 1;
@@ -171,6 +172,26 @@ static void _pa_sink_input_info_cb(pa_context *c,
 				notify_via_pipe(mixer_notify_output_in);
 			}
 			pa_last_output_idx = i->sink;
+			pa_last_output_port = -1;
+		}
+	}
+}
+
+static void _pa_sink_info_cb(pa_context *c,
+				   const pa_sink_info *i,
+				   int eol,
+				   void *data)
+{
+	uint32_t port;
+	if (i) {
+		port = i->active_port && i->active_port->name
+			? hash_str(i->active_port->name)
+			: 0;
+		if (pa_last_output_port != port) {
+			if (pa_last_output_port != -1) {
+				notify_via_pipe(mixer_notify_output_in);
+			}
+			pa_last_output_port = port;
 		}
 	}
 }
@@ -258,8 +279,17 @@ static void _pa_ctx_subscription_cb(pa_context *ctx, pa_subscription_event_type_
 	if (type != PA_SUBSCRIPTION_EVENT_CHANGE)
 		return;
 
-	if (pa_s && idx == pa_stream_get_index(pa_s))
-		pa_context_get_sink_input_info(ctx, idx, _pa_sink_input_info_cb, NULL);
+	switch (t & PA_SUBSCRIPTION_EVENT_FACILITY_MASK) {
+	case PA_SUBSCRIPTION_EVENT_SINK:
+		if (pa_s && idx == pa_stream_get_device_index(pa_s))
+			pa_context_get_sink_info_by_index(ctx, idx, _pa_sink_info_cb, NULL);
+		break;
+	case PA_SUBSCRIPTION_EVENT_SINK_INPUT:
+		if (pa_s && idx == pa_stream_get_index(pa_s))
+			pa_context_get_sink_input_info(ctx, idx, _pa_sink_input_info_cb, NULL);
+		break;
+	}
+
 }
 
 static int _pa_create_context(void)
@@ -296,7 +326,7 @@ static int _pa_create_context(void)
 	}
 
 	pa_context_set_subscribe_callback(pa_ctx, _pa_ctx_subscription_cb, NULL);
-	pa_operation *op = pa_context_subscribe(pa_ctx, PA_SUBSCRIPTION_MASK_SINK_INPUT,
+	pa_operation *op = pa_context_subscribe(pa_ctx, PA_SUBSCRIPTION_MASK_SINK_INPUT|PA_SUBSCRIPTION_MASK_SINK,
 			NULL, NULL);
 	if (!op)
 		goto out_fail_connected;
@@ -403,6 +433,7 @@ static int op_pulse_open(sample_format_t sf, const channel_position_t *channel_m
 	}
 
 	pa_last_output_idx = -1;
+	pa_last_output_port = -1;
 	pa_stream_set_state_callback(pa_s, _pa_stream_running_cb, NULL);
 
 	rc = pa_stream_connect_playback(pa_s,
