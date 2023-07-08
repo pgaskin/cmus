@@ -81,6 +81,7 @@ int remove_cache_with_track = 0;
 int auto_expand_albums_follow = 1;
 int auto_expand_albums_search = 1;
 int auto_expand_albums_selcur = 1;
+int auto_hide_playlists_panel = 0;
 int show_all_tracks = 1;
 int mouse = 0;
 int mpris = 1;
@@ -560,6 +561,21 @@ static void set_pl_env_vars(void *data, const char *buf)
 /* }}} */
 
 /* callbacks for toggle options {{{ */
+
+static void get_auto_hide_playlists_panel(void *data, char *buf, size_t size)
+{
+	strscpy(buf, bool_names[auto_hide_playlists_panel], size);
+}
+
+static void set_auto_hide_playlists_panel(void *data, const char *buf)
+{
+	parse_bool(buf, &auto_hide_playlists_panel);
+}
+
+static void toggle_auto_hide_playlists_panel(void *data)
+{
+	auto_hide_playlists_panel ^= 1;
+}
 
 static void get_auto_reshuffle(void *data, char *buf, size_t size)
 {
@@ -1543,6 +1559,7 @@ static const struct {
 	DT(auto_expand_albums_follow)
 	DT(auto_expand_albums_search)
 	DT(auto_expand_albums_selcur)
+	DT(auto_hide_playlists_panel)
 	DT(show_all_tracks)
 	DT(show_current_bitrate)
 	DT(show_playback_position)
