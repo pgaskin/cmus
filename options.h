@@ -155,7 +155,6 @@ extern int scroll_offset;
 extern int rewind_offset;
 extern int skip_track_info;
 extern int ignore_duplicates;
-extern int remove_cache_with_track;
 extern int mouse;
 extern int mpris;
 extern int time_show_leading_zero;
