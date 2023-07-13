@@ -1570,8 +1570,8 @@ static const struct {
 	DT(stop_after_queue)
 	DN(tree_width_percent)
 	DN(tree_width_max)
-	DN(pl_env_vars)
 	DT(pause_on_output_change)
+	DN(pl_env_vars)
 	{ NULL, NULL, NULL, NULL, 0 }
 };
 
