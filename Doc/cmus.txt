@@ -1707,7 +1707,8 @@ usually are. If the file is in the cache, it will be preserved, and an error
 will be displayed upon playback. If the file is not in the cache, it will be
 removed from playlists and the library. There is one special exception: if a
 file is missing due to the environment variable being invalid/empty/unset, but
-it is still in the cache, it will be preserved as-is.
+it is still in the cache, it will be preserved in the cache as-is, in addition
+to being preserved in the library like usual.
 
 When using `:save`/`:load` and in the on-disk library/cache/playlists, the paths
 will be stored with the environment variable delimited using the character

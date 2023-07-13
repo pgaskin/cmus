@@ -129,11 +129,11 @@ static struct track_info *cache_entry_to_ti(struct cache_entry *e)
 	struct keyval *kv;
 	int str_size = e->size - sizeof(*e);
 	int pos, i, count;
-	char *proc_fn;
+	char *proc_filename;
 
-	if (pl_env_var(strings, NULL) && (proc_fn = pl_env_restore(strings))) {
-		ti = track_info_new(proc_fn);
-		free(proc_fn);
+	if (pl_env_var(strings, NULL) && (proc_filename = pl_env_expand(strings))) {
+		ti = track_info_new(proc_filename);
+		free(proc_filename);
 	} else {
 		ti = track_info_new(strings);
 	}
@@ -327,7 +327,7 @@ static void flush_buffer(int fd, struct gbuf *buf)
 
 static void write_ti(int fd, struct gbuf *buf, struct track_info *ti, unsigned int *offsetp)
 {
-	char *proc_fn = pl_env_save(ti->filename);
+	char *proc_filename = pl_env_reduce(ti->filename);
 	const struct keyval *kv = ti->comments;
 	unsigned int offset = *offsetp;
 	unsigned int pad;
@@ -344,7 +344,7 @@ static void write_ti(int fd, struct gbuf *buf, struct track_info *ti, unsigned i
 	e.mtime = ti->mtime;
 	e.play_count = ti->play_count;
 	e.bpm = ti->bpm;
-	len[count] = strlen(proc_fn) + 1;
+	len[count] = strlen(proc_filename) + 1;
 	e.size += len[count++];
 	len[count] = (ti->codec ? strlen(ti->codec) : 0) + 1;
 	e.size += len[count++];
@@ -369,7 +369,7 @@ static void write_ti(int fd, struct gbuf *buf, struct track_info *ti, unsigned i
 	if (pad)
 		gbuf_set(buf, 0, pad);
 	gbuf_add_bytes(buf, &e, sizeof(e));
-	gbuf_add_bytes(buf, proc_fn, len[count++]);
+	gbuf_add_bytes(buf, proc_filename, len[count++]);
 	gbuf_add_bytes(buf, ti->codec ? ti->codec : "", len[count++]);
 	gbuf_add_bytes(buf, ti->codec_profile ? ti->codec_profile : "", len[count++]);
 	for (i = 0; kv[i].key; i++) {
@@ -380,7 +380,7 @@ static void write_ti(int fd, struct gbuf *buf, struct track_info *ti, unsigned i
 	free(len);
 	*offsetp = offset + pad + e.size;
 
-	free(proc_fn);
+	free(proc_filename);
 }
 
 int cache_close(void)

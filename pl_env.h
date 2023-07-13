@@ -89,7 +89,7 @@
  *      to be an (old-fashioned) invisible delimiter, which makes sense for our
  *      purposes.
  *   3. Since it is invisible, we don't need to deal with everywhere it might be
- *      printed to the UI if it is not substituted by pl_env_restore (i.e. if
+ *      printed to the UI if it is not substituted by pl_env_expand (i.e. if
  *      the env var is missing or invalid).
  *
  * - Why not remove the substitution if the env var is missing or invalid?
@@ -178,23 +178,23 @@
 void pl_env_init(void);
 
 /**
- * pl_env_save checks the base path against the configured environment
+ * pl_env_reduce checks the base path against the configured environment
  * variables, replaces the first match with a substitution, and returns a
  * malloc'd copy of the result. If there isn't any valid match or the path
  * already contains a substitution, a copy of the original path is returned
  * as-is.
  */
-char *pl_env_save(const char *path);
+char *pl_env_reduce(const char *path);
 
 /**
- * pl_env_restore returns a malloc'd copy of path, with the environment variable
+ * pl_env_expand returns a malloc'd copy of path, with the environment variable
  * substitution. The provided path must use forward slashes, and begin with a
  * slash or a substitution followed by a slash (which will always be true for
  * library paths within cmus). If the path does not have a substitution, the
  * original path is returned. If the environment variable does not exist or is
  * invalid, the original path is also returned.
  */
-char *pl_env_restore(const char *path);
+char *pl_env_expand(const char *path);
 
 /**
  * pl_env_var returns a pointer to the start of the substituted environment

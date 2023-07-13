@@ -232,13 +232,13 @@ static int save_ext_playlist_cb(void *data, struct track_info *ti)
 
 static int save_playlist_cb(void *data, struct track_info *ti)
 {
-	char *proc_fn = pl_env_save(ti->filename);
+	char *proc_filename = pl_env_reduce(ti->filename);
 	int fd = *(int *)data;
 	const char nl = '\n';
 	int rc;
 
-	rc = write_all(fd, proc_fn, strlen(proc_fn));
-	free(proc_fn);
+	rc = write_all(fd, proc_filename, strlen(proc_filename));
+	free(proc_filename);
 	if (rc == -1)
 		return -1;
 

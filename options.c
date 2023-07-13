@@ -521,12 +521,12 @@ static void get_pl_env_vars(void *data, char *buf, size_t size)
 	for (char **x = pl_env_vars; *x; x++) {
 		if (x != pl_env_vars) {
 			if (!--r)
-				return;
+				return; /* overflow */
 			*p++ = ',';
 		}
 		size_t l = strlen(*x);
 		if (!(r -= l))
-			return;
+			return; /* overflow */
 		strcpy(p, *x);
 		p += l;
 	}
@@ -544,9 +544,11 @@ static void set_pl_env_vars(void *data, const char *buf)
 		pl_env_vars = NULL;
 	}
 	size_t n = 1;
-	for (const char *x = buf; *x; x++)
-		if (*x == ',')
+	for (const char *x = buf; *x; x++) {
+		if (*x == ',') {
 			n++;
+		}
+	}
 	char **a = pl_env_vars = xnew(char*, n+1);
 	for (char *x = *a++ = xstrdup(buf); *x; x++) {
 		if (*x == ',') {

@@ -353,7 +353,7 @@ static int handle_line(void *data, const char *line)
 		add_url(line);
 	} else {
 		char *absolute = pl_env_var(line, NULL)
-			? pl_env_restore(line)
+			? pl_env_expand(line)
 			: path_absolute_cwd(line, data);
 		add_file(absolute, 0);
 		free(absolute);

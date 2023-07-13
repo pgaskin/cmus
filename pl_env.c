@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Patrick Gaskin
+ * Copyright 2021-2023 Patrick Gaskin
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -34,19 +34,21 @@ static bool pl_env_contains_delimiter(const char *str)
 }
 
 /**
- * pl_env_norm normalizes the provided path into the required format for
- * pl_env_save and pl_env_restore, which does exact string matching/replacement.
- * It converts backslashes to slashes on Windows, removes consecutive slashes,
- * removes './' path segments, simplifies '../' path segments (and returns NULL
- * if it would result in going above the uppermost directory), and removes the
- * trailing slash.
+ * pl_env_norm gets an env var and puts it into the required format for
+ * pl_env_reduce and pl_env_expand, which does exact string matching/replacement
+ * against the file paths. It converts backslashes to slashes on Windows,
+ * removes consecutive slashes, removes './' path segments, simplifies '../'
+ * path segments (and returns NULL if it would result in going above the
+ * uppermost directory), and removes the trailing slash. In addition, it trims
+ * the variable name before looking it up.
  */
 static char *pl_env_norm(char *path)
 {
 #ifdef _WIN32
 	/* convert backslashes to slashes */
 	/* note: cmus uses forward slashes internally, but Windows accepts both */
-	for (char *p = new; *p; p++)
+	/* even though they will get normalized on windows, we need paths to match exactly */
+	for (char *p = path; *p; p++)
 		*p = *p == '\\' ? '/' : *p;
 #endif
 
@@ -159,7 +161,7 @@ void pl_env_init(void)
 	*new = NULL;
 }
 
-char *pl_env_save(const char *path)
+char *pl_env_reduce(const char *path)
 {
 	if (!pl_env_vars || !*pl_env_vars || pl_env_var(path, NULL))
 		return xstrdup(path);
@@ -206,7 +208,7 @@ char *pl_env_save(const char *path)
 	return xstrdup(path);
 }
 
-char *pl_env_restore(const char *path)
+char *pl_env_expand(const char *path)
 {
 	if (!path)
 		return NULL;
