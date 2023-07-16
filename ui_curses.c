@@ -1998,6 +1998,34 @@ static void handle_ch(uchar ch)
 	}
 }
 
+static void handle_csi(void) {
+	// after ESC[ until 0x40-0x7E (@A–Z[\]^_`a–z{|}~)
+	// https://en.wikipedia.org/wiki/ANSI_escape_code#CSI_(Control_Sequence_Introducer)_sequences
+	// https://www.ecma-international.org/wp-content/uploads/ECMA-48_5th_edition_june_1991.pdf
+
+	int c;
+	int buf[16]; // buffer a reasonable length
+	size_t buf_n = 0;
+	int done = 0;
+
+	while (1) {
+		c = getch();
+		if (buf_n < sizeof(buf)/sizeof(*buf)) {
+			buf[buf_n++] = c;
+		} else if (!done) {
+			done = -1;
+		}
+		if (c >= 0x40 && c <= 0x7E) {
+			done++;
+			break;
+		}
+	}
+
+	if (!done) {
+		return; // overflow
+	}
+}
+
 static void handle_escape(int c)
 {
 	clear_error();
@@ -2076,8 +2104,11 @@ static void u_getch(void)
 		cbreak();
 		int e_key = getch();
 		halfdelay(5);
-		if (e_key != ERR && e_key != 0) {
-			handle_escape(e_key);
+		if (e_key != ERR) {
+			if (e_key == '[')
+				handle_csi();
+			if (e_key != 0)
+				handle_escape(e_key);
 			return;
 		}
 	}
