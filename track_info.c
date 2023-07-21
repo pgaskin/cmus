@@ -59,6 +59,7 @@ struct track_info *track_info_new(const char *filename)
 	ti->codec = NULL;
 	ti->codec_profile = NULL;
 	ti->output_gain = 0;
+	ti->albumtracks = -1;
 
 	return ti;
 }
@@ -245,6 +246,7 @@ int track_info_cmp(const struct track_info *a, const struct track_info *b, const
 
 		switch (key) {
 		case SORT_TRACKNUMBER:
+		case SORT_ALBUMTRACKS:
 		case SORT_DISCNUMBER:
 		case SORT_DATE:
 		case SORT_ORIGINALDATE:
@@ -290,6 +292,7 @@ static const struct {
 	{ "title",		SORT_TITLE		},
 	{ "play_count",		SORT_PLAY_COUNT		},
 	{ "tracknumber",	SORT_TRACKNUMBER	},
+	{ "albumtracks",	SORT_ALBUMTRACKS	},
 	{ "discnumber",		SORT_DISCNUMBER		},
 	{ "date",		SORT_DATE		},
 	{ "originaldate",	SORT_ORIGINALDATE	},
@@ -312,6 +315,7 @@ static const struct {
 	{ "-title",		REV_SORT_TITLE		},
 	{ "-play_count", 	REV_SORT_PLAY_COUNT	},
 	{ "-tracknumber",	REV_SORT_TRACKNUMBER	},
+	{ "-albumtracks",	REV_SORT_ALBUMTRACKS	},
 	{ "-discnumber",	REV_SORT_DISCNUMBER	},
 	{ "-date",		REV_SORT_DATE		},
 	{ "-originaldate",	REV_SORT_ORIGINALDATE	},
