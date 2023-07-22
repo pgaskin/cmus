@@ -669,9 +669,11 @@ static int special_album_cmp_date(const struct album *a, const struct album *b)
 	if (cmp)
 		return cmp;
 
-	cmp = a->date - b->date;
-	if (cmp)
-		return cmp;
+	if (!sort_albums_by_name) {
+		cmp = a->date - b->date;
+		if (cmp)
+			return cmp;
+	}
 
 	return strcmp(album_sort_collkey(a), album_sort_collkey(b));
 }
@@ -1257,6 +1259,8 @@ void tree_sort_artists(void (*add_album_cb)(struct album *),
 			struct rb_node *t_node, *t_tmp;
 			struct album *album = to_album(l_node);
 
+			remove_album(album);
+			add_album(album);
 			rb_for_each_safe(t_node, t_tmp, &album->track_root) {
 				struct tree_track *track = to_tree_track(t_node);
 
