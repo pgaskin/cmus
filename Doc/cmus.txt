@@ -1318,6 +1318,7 @@ Special Keys:
 	%l  %{album}		@br
 	%D  %{discnumber}	@br
 	%n  %{tracknumber}	@br
+	%N  %{albumtracks}	@br
 	%X  %{play_count}	@br
 	%t  %{title}		@br
 	%g  %{genre}		@br
@@ -1394,9 +1395,9 @@ Examples:
 Sort option (lib_sort, pl_sort) value is space separated list of the following
 sort keys:
 
-	artist, album, title, tracknumber, play_count, discnumber, date,
-	originaldate, genre, comment, albumartist, filename, filemtime, bpm,
-	bitrate, codec, media, codec_profile, rg_track_gain, rg_track_peak,
+	artist, album, title, tracknumber, albumtracks, play_count, discnumber,
+	date, originaldate, genre, comment, albumartist, filename, filemtime,
+	bpm, bitrate, codec, media, codec_profile, rg_track_gain, rg_track_peak,
 	rg_album_gain, rg_album_peak
 
 Note: Adding a '-' in front of the key will reverse the sort order.
