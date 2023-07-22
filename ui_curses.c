@@ -536,7 +536,8 @@ static void fill_track_fopts_track_info(struct track_info *info)
 	fopt_set_int(&track_fopts[TF_PLAY_COUNT], info->play_count, 0);
 	fopt_set_int(&track_fopts[TF_DISC], info->discnumber, info->discnumber == -1);
 	fopt_set_int(&track_fopts[TF_TRACK], info->tracknumber, info->tracknumber == -1);
-	fopt_set_int(&track_fopts[TF_ALBUMTRACKS], info->albumtracks, info->albumtracks == -1);
+	fopt_set_int(&track_fopts[TF_ALBUMTRACKS], (info->lib_album ?
+				info->lib_album->num_tracks : 0), info->lib_album == NULL);
 	fopt_set_str(&track_fopts[TF_TITLE], info->title);
 	fopt_set_int(&track_fopts[TF_YEAR], info->date / 10000, info->date <= 0);
 	fopt_set_str(&track_fopts[TF_GENRE], info->genre);
@@ -592,6 +593,7 @@ static void fill_track_fopts_album(struct album *album)
 {
 	fopt_set_int(&track_fopts[TF_YEAR], album->min_date / 10000, album->min_date <= 0);
 	fopt_set_int(&track_fopts[TF_MAX_YEAR], album->date / 10000, album->date <= 0);
+	fopt_set_int(&track_fopts[TF_ALBUMTRACKS], album->num_tracks, album->num_tracks == 0);
 	fopt_set_str(&track_fopts[TF_ALBUMARTIST], album->artist->name);
 	fopt_set_str(&track_fopts[TF_ARTIST], album->artist->name);
 	fopt_set_str(&track_fopts[TF_ALBUM], album->name);
@@ -689,7 +691,12 @@ static void print_tree(struct window *win, int row, struct iter *iter)
 	}
 
 	gbuf_add_ch(&print_buffer, ' ');
-	if (album) {
+	if (flat_library_view) {
+		if (album == NULL)
+			return;
+		fill_track_fopts_album(album);
+		format_print(&print_buffer, tree_win_w - 1, tree_win_flat_format, track_fopts);
+	} else if (album) {
 		fill_track_fopts_album(album);
 		format_print(&print_buffer, tree_win_w - 1, tree_win_format, track_fopts);
 	} else {
@@ -2013,28 +2020,30 @@ static void handle_csi(void) {
 	int c;
 	int buf[16]; // buffer a reasonable length
 	size_t buf_n = 0;
-	int done = 0;
+	int overflow = 0;
 
 	while (1) {
 		c = getch();
+		if (c == ERR || c == 0) {
+			return;
+		}
 		if (buf_n < sizeof(buf)/sizeof(*buf)) {
 			buf[buf_n++] = c;
-		} else if (!done) {
-			done = -1;
+		} else {
+			overflow = 1;
 		}
 		if (c >= 0x40 && c <= 0x7E) {
-			done++;
 			break;
 		}
 	}
 
-	if (!done) {
-		return; // overflow
+	if (overflow) {
+		return;
 	}
 
 	if (buf_n == 4) {
 		// bracketed paste
-		// https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h3-Functions-using-CSI-_-ordered-by-the-final-character_s_
+		// https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h2-Bracketed-Paste-Mode
 		if (buf[0] == '2' && buf[1] == '0' && (buf[2] == '0' || buf[2] == '1') && buf[3] == '~') {
 			in_bracketed_paste = buf[2] == '0';
 			return;
@@ -2125,7 +2134,7 @@ static void u_getch(void)
 		if (e_key != ERR) {
 			if (e_key == '[')
 				handle_csi();
-			if (e_key != 0)
+			else if (e_key != 0)
 				handle_escape(e_key);
 			return;
 		}

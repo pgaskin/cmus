@@ -84,6 +84,7 @@ int ignore_duplicates = 0;
 int auto_expand_albums_follow = 1;
 int auto_expand_albums_search = 1;
 int auto_expand_albums_selcur = 1;
+int flat_library_view = 0;
 int auto_hide_playlists_panel = 0;
 int show_all_tracks = 1;
 int mouse = 0;
@@ -147,6 +148,7 @@ int attrs[NR_ATTRS] = {
 
 /* uninitialized option variables */
 char *tree_win_format = NULL;
+char *tree_win_flat_format = NULL;
 char *tree_win_artist_format = NULL;
 char *track_win_album_format = NULL;
 char *track_win_format = NULL;
@@ -233,6 +235,7 @@ enum format_id {
 	FMT_TRACKWIN_VA,
 	FMT_TREEWIN,
 	FMT_TREEWIN_ARTIST,
+	FMT_TREEWIN_FLAT,
 
 	NR_FMTS
 };
@@ -267,6 +270,7 @@ static const struct {
 	[FMT_TRACKWIN_VA]	= { "format_trackwin_va"	, "%3n. %t (%a)%= %y %d "				},
 	[FMT_TREEWIN]		= { "format_treewin"		, "  %l"						},
 	[FMT_TREEWIN_ARTIST]	= { "format_treewin_artist"	, "%a"							},
+	[FMT_TREEWIN_FLAT]	= { "format_treewin_flat"	, "%-35%a: %l"						},
 
 	[NR_FMTS] =
 
@@ -567,6 +571,23 @@ static void set_pl_env_vars(void *data, const char *buf)
 /* }}} */
 
 /* callbacks for toggle options {{{ */
+
+static void get_flat_library_view(void *data, char *buf, size_t size)
+{
+	strscpy(buf, bool_names[flat_library_view], size);
+}
+
+static void set_flat_library_view(void *data, const char *buf)
+{
+	parse_bool(buf, &flat_library_view);
+	window_set_contents(lib_tree_win, &lib_artist_root);
+}
+
+static void toggle_flat_library_view(void *data)
+{
+	flat_library_view ^= 1;
+	window_set_contents(lib_tree_win, &lib_artist_root);
+}
 
 static void get_auto_hide_playlists_panel(void *data, char *buf, size_t size)
 {
@@ -1344,12 +1365,12 @@ static void get_block_key_paste(void *data, char *buf, size_t size)
 
 static void set_block_key_paste(void *data, const char *buf)
 {
-	parse_bool(buf, &pause_on_output_change);
+	parse_bool(buf, &block_key_paste);
 }
 
 static void toggle_block_key_paste(void *data)
 {
-	pause_on_output_change ^= 1;
+	block_key_paste ^= 1;
 }
 
 /* }}} */
@@ -1512,6 +1533,8 @@ static char **id_to_fmt(enum format_id id)
 		return &tree_win_format;
 	case FMT_TREEWIN_ARTIST:
 		return &tree_win_artist_format;
+	case FMT_TREEWIN_FLAT:
+		return &tree_win_flat_format;
 	case FMT_STATUSLINE:
 		return &statusline_format;
 	default:
@@ -1592,6 +1615,7 @@ static const struct {
 	DT(auto_expand_albums_follow)
 	DT(auto_expand_albums_search)
 	DT(auto_expand_albums_selcur)
+	DT(flat_library_view)
 	DT(auto_hide_playlists_panel)
 	DT(show_all_tracks)
 	DT(show_current_bitrate)
