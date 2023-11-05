@@ -1354,6 +1354,15 @@ static void cmd_pl_rename(char *arg)
 		info_msg(":pl-rename only works in view 3");
 }
 
+static void cmd_pl_delete(char *arg)
+{
+	int flag = parse_flags((const char **)&arg, "a");
+	if (flag == 'a')
+		pl_delete_all();
+	else
+		pl_delete_by_name(arg);
+}
+
 static void cmd_version(char *arg)
 {
 	info_msg(VERSION);
@@ -2645,6 +2654,7 @@ struct command commands[] = {
 	{ "pl-export",             cmd_pl_export,        1, -1, NULL,                 0, 0          },
 	{ "pl-import",             cmd_pl_import,        0, -1, NULL,                 0, 0          },
 	{ "pl-rename",             cmd_pl_rename,        1, -1, NULL,                 0, 0          },
+	{ "pl-delete",             cmd_pl_delete,        1, 1,  NULL,                 0, 0          },
 	{ "push",                  cmd_push,             0, -1, expand_commands,      0, 0          },
 	{ "pwd",                   cmd_pwd,              0, 0,  NULL,                 0, 0          },
 	{ "raise-vte",             cmd_raise_vte,        0, 0,  NULL,                 0, 0          },

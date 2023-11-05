@@ -88,6 +88,8 @@ void pl_invert_marks(void);
 void pl_mark(char *arg);
 void pl_unmark(void);
 void pl_rand(void);
+void pl_delete_all(void);
+void pl_delete_by_name(char *arg);
 void pl_win_mv_after(void);
 void pl_win_mv_before(void);
 void pl_win_remove(void);

@@ -26,7 +26,6 @@
 #include "debug.h"
 #include "path.h"
 #include "ui_curses.h"
-#include "lib.h"
 
 #include <string.h>
 #include <stdatomic.h>
@@ -60,7 +59,6 @@ struct track_info *track_info_new(const char *filename)
 	ti->codec = NULL;
 	ti->codec_profile = NULL;
 	ti->output_gain = 0;
-	ti->lib_album = NULL;
 
 	return ti;
 }
@@ -76,6 +74,7 @@ void track_info_set_comments(struct track_info *ti, struct keyval *comments) {
 	ti->title = keyvals_get_val(comments, "title");
 	ti->tracknumber = comments_get_int(comments, "tracknumber");
 	ti->discnumber = comments_get_int(comments, "discnumber");
+	ti->totaldiscs = comments_get_int(comments, "totaldiscs");
 	ti->date = comments_get_date(comments, "date");
 	ti->originaldate = comments_get_date(comments, "originaldate");
 	ti->genre = keyvals_get_val(comments, "genre");
@@ -107,11 +106,13 @@ void track_info_set_comments(struct track_info *ti, struct keyval *comments) {
 	ti->rg_album_peak = comments_get_double(comments, "replaygain_album_peak");
 
 	if (comments_get_signed_int(comments, "r128_track_gain", &r128_track_gain) != -1) {
-		ti->rg_track_gain = (r128_track_gain / 256.0) + 5;
+		double rg = (r128_track_gain / 256.0) + 5;
+		ti->rg_track_gain = round(rg * 100) / 100.0;
 	}
 
 	if (comments_get_signed_int(comments, "r128_album_gain", &r128_album_gain) != -1) {
-		ti->rg_album_gain = (r128_album_gain / 256.0) + 5;
+		double rg = (r128_album_gain / 256.0) + 5;
+		ti->rg_album_gain = round(rg * 100) / 100.0;
 	}
 
 	if (comments_get_signed_int(comments, "output_gain", &output_gain) != -1) {
@@ -248,6 +249,7 @@ int track_info_cmp(const struct track_info *a, const struct track_info *b, const
 		switch (key) {
 		case SORT_TRACKNUMBER:
 		case SORT_DISCNUMBER:
+		case SORT_TOTALDISCS:
 		case SORT_DATE:
 		case SORT_ORIGINALDATE:
 		case SORT_PLAY_COUNT:
@@ -293,6 +295,7 @@ static const struct {
 	{ "play_count",		SORT_PLAY_COUNT		},
 	{ "tracknumber",	SORT_TRACKNUMBER	},
 	{ "discnumber",		SORT_DISCNUMBER		},
+	{ "totaldiscs",		SORT_TOTALDISCS		},
 	{ "date",		SORT_DATE		},
 	{ "originaldate",	SORT_ORIGINALDATE	},
 	{ "genre",		SORT_GENRE		},
@@ -315,6 +318,7 @@ static const struct {
 	{ "-play_count", 	REV_SORT_PLAY_COUNT	},
 	{ "-tracknumber",	REV_SORT_TRACKNUMBER	},
 	{ "-discnumber",	REV_SORT_DISCNUMBER	},
+	{ "-totaldiscs",	REV_SORT_TOTALDISCS	},
 	{ "-date",		REV_SORT_DATE		},
 	{ "-originaldate",	REV_SORT_ORIGINALDATE	},
 	{ "-genre",		REV_SORT_GENRE		},

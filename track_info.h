@@ -30,7 +30,6 @@ struct track_info {
 
 	// next track_info in the hash table (cache.c)
 	struct track_info *next;
-	struct album *lib_album;
 
 	time_t mtime;
 	int duration;
@@ -41,6 +40,7 @@ struct track_info {
 
 	int tracknumber;
 	int discnumber;
+	int totaldiscs;
 	int date;
 	int originaldate;
 	double rg_track_gain;
@@ -79,6 +79,7 @@ typedef size_t sort_key_t;
 #define SORT_TITLE         	offsetof(struct track_info, collkey_title)
 #define SORT_TRACKNUMBER   	offsetof(struct track_info, tracknumber)
 #define SORT_DISCNUMBER    	offsetof(struct track_info, discnumber)
+#define SORT_TOTALDISCS    	offsetof(struct track_info, totaldiscs)
 #define SORT_DATE          	offsetof(struct track_info, date)
 #define SORT_ORIGINALDATE  	offsetof(struct track_info, originaldate)
 #define SORT_RG_TRACK_GAIN 	offsetof(struct track_info, rg_track_gain)
@@ -103,6 +104,7 @@ typedef size_t sort_key_t;
 #define REV_SORT_PLAY_COUNT   	(REV_SORT__START + offsetof(struct track_info, play_count))
 #define REV_SORT_TRACKNUMBER    (REV_SORT__START + offsetof(struct track_info, tracknumber))
 #define REV_SORT_DISCNUMBER     (REV_SORT__START + offsetof(struct track_info, discnumber))
+#define REV_SORT_TOTALDISCS     (REV_SORT__START + offsetof(struct track_info, totaldiscs))
 #define REV_SORT_DATE           (REV_SORT__START + offsetof(struct track_info, date))
 #define REV_SORT_ORIGINALDATE   (REV_SORT__START + offsetof(struct track_info, originaldate))
 #define REV_SORT_RG_TRACK_GAIN  (REV_SORT__START + offsetof(struct track_info, rg_track_gain))
