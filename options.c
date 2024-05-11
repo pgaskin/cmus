@@ -1917,6 +1917,11 @@ static int handle_resume_line(void *data, const char *line)
 	} else if (strcmp(cmd, "browser-dir") == 0) {
 		free(resume->browser_dir);
 		resume->browser_dir = xstrdup(unescape(arg));
+	} else if (strcmp(cmd, "active-pl") == 0) {
+		free(pl_resume_name);
+		pl_resume_name = xstrdup(unescape(arg));
+	} else if (strcmp(cmd, "active-pl-row") == 0) {
+		str_to_int(arg, &pl_resume_row);
 	} else if (strcmp(cmd, "marked-pl") == 0) {
 		free(resume->marked_pl);
 		resume->marked_pl = xstrdup(unescape(arg));
@@ -1990,6 +1995,7 @@ void resume_exit(void)
 {
 	char filename_tmp[512];
 	char filename[512];
+	const char *pl_name;
 	struct track_info *ti;
 	FILE *f;
 	int rc;
@@ -2017,6 +2023,11 @@ void resume_exit(void)
 	if (lib_live_filter)
 		fprintf(f, "live-filter %s\n", escape(lib_live_filter));
 	fprintf(f, "browser-dir %s\n", escape(browser_dir));
+
+	if ((pl_name = pl_playing_pl_name())) {
+		fprintf(f, "active-pl %s\n", escape(pl_name));
+		fprintf(f, "active-pl-row %d\n", pl_playing_pl_row());
+	}
 
 	fprintf(f, "marked-pl %s\n", escape(pl_marked_pl_name()));
 
