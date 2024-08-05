@@ -69,6 +69,7 @@ libcmus.a: $(cmus-y) file.o path.o prog.o xmalloc.o
 # }}}
 
 # input plugins {{{
+amedia-objs		:= ip/amedia.lo
 cdio-objs		:= ip/cdio.lo
 flac-objs		:= ip/flac.lo
 mad-objs		:= ip/mad.lo ip/nomad.lo
@@ -86,6 +87,7 @@ ffmpeg-objs		:= ip/ffmpeg.lo
 cue-objs		:= ip/cue.lo
 vtx-objs		:= ip/vtx.lo
 
+ip-$(CONFIG_AMEDIA)	+= ip/amedia.so
 ip-$(CONFIG_CDIO)	+= ip/cdio.so
 ip-$(CONFIG_FLAC)	+= ip/flac.so
 ip-$(CONFIG_MAD)	+= ip/mad.so
@@ -103,6 +105,7 @@ ip-$(CONFIG_FFMPEG)	+= ip/ffmpeg.so
 ip-$(CONFIG_CUE)	+= ip/cue.so
 ip-$(CONFIG_VTX)	+= ip/vtx.so
 
+$(amedia-objs):		CFLAGS += $(AMEDIA_CFLAGS)
 $(cdio-objs):		CFLAGS += $(CDIO_CFLAGS) $(CDDB_CFLAGS)
 $(flac-objs):		CFLAGS += $(FLAC_CFLAGS)
 $(mad-objs):		CFLAGS += $(MAD_CFLAGS)
@@ -117,6 +120,9 @@ $(mp4-objs):		CFLAGS += $(MP4_CFLAGS)
 $(aac-objs):		CFLAGS += $(AAC_CFLAGS)
 $(ffmpeg-objs):		CFLAGS += $(FFMPEG_CFLAGS)
 $(vtx-objs):		CFLAGS += $(VTX_CFLAGS)
+
+ip/amedia.so: $(amedia-objs) $(libcmus-y)
+	$(call cmd,ld_dl,$(AMEDIA_LIBS))
 
 ip/cdio.so: $(cdio-objs) $(libcmus-y)
 	$(call cmd,ld_dl,$(CDIO_LIBS) $(CDDB_LIBS))

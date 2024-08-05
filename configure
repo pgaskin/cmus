@@ -498,6 +498,37 @@ check_ffmpeg()
 	return 1
 }
 
+amedia_code="
+#include <media/NdkMediaCodec.h>
+#include <media/NdkMediaError.h>
+#include <media/NdkMediaExtractor.h>
+#include <media/NdkMediaFormat.h>
+int main() {
+	if (__builtin_available(android 21, *)) {
+		AMediaExtractor_delete(AMediaExtractor_new());
+		AMediaFormat_delete(AMediaFormat_new());
+	}
+	return 0;
+}
+"
+
+check_amedia()
+{
+	if check_library AMEDIA "" "-lmediandk"
+	then
+		AMEDIA_CFLAGS="$AMEDIA_CFLAGS -D__ANDROID_UNAVAILABLE_SYMBOLS_ARE_WEAK__ -Werror=unguarded-availability"
+
+		msg_checking "for amedia support"
+		if try_compile_link "$amedia_code" $AMEDIA_CFLAGS $AMEDIA_LIBS
+		then
+			msg_result yes
+			return 0
+		fi
+		msg_result no
+	fi
+	return 1
+}
+
 check_string_function()
 {
 	msg_checking "for function $1"
