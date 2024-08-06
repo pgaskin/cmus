@@ -167,11 +167,11 @@ static int op_aaudio_get_allowed_capture(char **val)
 static int op_aaudio_set_sharing_mode(const char *val)
 {
 	if (!strcmp(val, "shared")) {
-		op_aaudio_opt_performance_mode = AAUDIO_SHARING_MODE_SHARED;
+		op_aaudio_opt_sharing_mode = AAUDIO_SHARING_MODE_SHARED;
 		return OP_ERROR_SUCCESS;
 	}
 	if (!strcmp(val, "exclusive")) {
-		op_aaudio_opt_performance_mode = AAUDIO_SHARING_MODE_EXCLUSIVE;
+		op_aaudio_opt_sharing_mode = AAUDIO_SHARING_MODE_EXCLUSIVE;
 		return OP_ERROR_SUCCESS;
 	}
 	errno = EINVAL;

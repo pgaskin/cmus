@@ -1504,7 +1504,7 @@ dsp.aaudio.performance_mode (power_saving) [power_saving, none]
 dsp.aaudio.allowed_capture (all) [all, system, none]
 	Specify whether the audio may or may not be captured by other apps or
 	the system.
-	
+
 	This option is only supported on Android 10+ (API 29) and requires
 	restarting cmus.
 
@@ -1519,9 +1519,9 @@ dsp.aaudio.disable_spatialization (false)
 	enabled for the current audio output. Note that spatialization only
 	applies to audio with at least 4 channels. See
 	https://developer.android.com/media/grow/spatial-audio for more details.
-	
+
 	This option is only supported on Android 12L+ (API 32) and requires
-	restarting cmus. 
+	restarting cmus.
 
 input.cdio.cddb_url
 	CDDB URL (default: freedb.freedb.org:8880). Uses HTTP if prefixed with
