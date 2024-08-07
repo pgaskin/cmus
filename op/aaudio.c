@@ -206,36 +206,6 @@ static void make_channel_remap(ssize_t *map, const channel_position_t *channel_m
 	d_print("\n");
 }
 
-REQUIRES_API(AAUDIO_MINIMUM_API)
-static aaudio_result_t aaudio_request_state_change(AAudioStream *stream, aaudio_result_t (*request)(AAudioStream *strm), aaudio_stream_state_t state, aaudio_stream_state_t state2)
-{
-	aaudio_result_t rc;
-
-	if (request) {
-		d_print("request state change\n");
-		rc = request(stream);
-		if (rc) {
-			return rc;
-		}
-	}
-
-	d_print("wait state change (%d:%s || %d:%s)\n", state, AAudio_convertStreamStateToText(state), state2, AAudio_convertStreamStateToText(state2));
-	aaudio_stream_state_t currentState = AAudioStream_getState(stream);
-	aaudio_stream_state_t inputState = currentState;
-	rc = AAUDIO_OK;
-	while (rc == AAUDIO_OK && currentState != state && (state2 == 0 || currentState != state2)) {
-		d_print("current state change %d\r\n", currentState);
-		rc = AAudioStream_waitForStateChange(stream, inputState, &currentState, INT64_MAX);
-		inputState = currentState;
-	}
-	if (rc) {
-		d_print("failed state change (%d - %s) [current=%d:%s]\n", rc, AAudio_convertResultToText(rc), currentState, AAudio_convertStreamStateToText(currentState));
-	} else {
-		d_print("done state change [current=%d:%s]\n", currentState, AAudio_convertStreamStateToText(currentState));
-	}
-	return rc;
-}
-
 // maps an res to a suitable error code
 static int OP_ERROR_AAUDIO(aaudio_result_t res) {
 	// see https://android.googlesource.com/platform/bionic/+/refs/heads/main/libc/private/bionic_errdefs.h
@@ -574,6 +544,52 @@ static int op_aaudio_close(void)
 	return OP_ERROR_SUCCESS;
 }
 
+
+
+REQUIRES_API(AAUDIO_MINIMUM_API)
+static aaudio_result_t do_state_change(aaudio_result_t (*request)(AAudioStream *strm), aaudio_stream_state_t state, aaudio_stream_state_t state2)
+{
+	aaudio_result_t rc;
+
+	if (strm_error) {
+		rc = strm_error;
+		return rc;
+	}
+
+	if (request) {
+		d_print("request state change\n");
+		rc = request(strm);
+		if (rc) {
+			return rc;
+		}
+	}
+
+	d_print("wait state change (%d:%s || %d:%s)\n", state, AAudio_convertStreamStateToText(state), state2, AAudio_convertStreamStateToText(state2));
+	aaudio_stream_state_t currentState = AAUDIO_STREAM_STATE_UNKNOWN;
+	aaudio_stream_state_t inputState = currentState;
+	rc = AAUDIO_OK;
+	while (rc == AAUDIO_OK && currentState != state && (state2 == 0 || currentState != state2)) {
+		// this is required to prevent hanging during pause_on_output_change
+		if (strm_error) {
+			rc = strm_error;
+			break;
+		}
+		if (currentState == AAUDIO_STREAM_STATE_CLOSING || currentState == AAUDIO_STREAM_STATE_CLOSED || currentState == AAUDIO_STREAM_STATE_DISCONNECTED) {
+			rc = AAUDIO_ERROR_DISCONNECTED;
+			break;
+		}
+		d_print("current state change %d\r\n", currentState);
+		rc = AAudioStream_waitForStateChange(strm, inputState, &currentState, INT64_MAX);
+		inputState = currentState;
+	}
+	if (rc) {
+		d_print("failed state change (%d - %s) [current=%d:%s]\n", rc, AAudio_convertResultToText(rc), currentState, AAudio_convertStreamStateToText(currentState));
+	} else {
+		d_print("done state change [current=%d:%s]\n", currentState, AAudio_convertStreamStateToText(currentState));
+	}
+	return rc;
+}
+
 REQUIRES_API(AAUDIO_MINIMUM_API)
 static int op_aaudio_drop(void)
 {
@@ -590,7 +606,7 @@ static int op_aaudio_drop(void)
 
 		// the stream must be paused to be flushed
 		if (orig_state == AAUDIO_STREAM_STATE_STARTED || orig_state == AAUDIO_STREAM_STATE_STARTING) {
-			rc = aaudio_request_state_change(strm, AAudioStream_requestPause, AAUDIO_STREAM_STATE_PAUSED, 0);
+			rc = do_state_change(AAudioStream_requestPause, AAUDIO_STREAM_STATE_PAUSED, 0);
 			if (rc) {
 				return -OP_ERROR_AAUDIO(rc);
 			}
@@ -598,7 +614,7 @@ static int op_aaudio_drop(void)
 		}
 
 		// flush the stream
-		rc = aaudio_request_state_change(strm, AAudioStream_requestFlush, AAUDIO_STREAM_STATE_FLUSHED, 0);
+		rc = do_state_change(AAudioStream_requestFlush, AAUDIO_STREAM_STATE_FLUSHED, 0);
 		if (rc) {
 			return -OP_ERROR_AAUDIO(rc);
 		}
@@ -646,7 +662,7 @@ static int op_aaudio_write(const char *buf, int count)
 		return -OP_ERROR_NOT_OPEN;
 	}
 	if (state != AAUDIO_STREAM_STATE_STARTING && state != AAUDIO_STREAM_STATE_STARTED) {
-		rc = aaudio_request_state_change(strm, AAudioStream_requestStart, AAUDIO_STREAM_STATE_STARTED, AAUDIO_STREAM_STATE_STARTING);
+		rc = do_state_change(AAudioStream_requestStart, AAUDIO_STREAM_STATE_STARTED, AAUDIO_STREAM_STATE_STARTING);
 		if (rc) {
 			return -OP_ERROR_AAUDIO(rc);
 		}
@@ -690,7 +706,7 @@ REQUIRES_API(AAUDIO_MINIMUM_API)
 static int op_aaudio_pause(void)
 {
 	// request stream pause, wait until it completes
-	return -OP_ERROR_AAUDIO(aaudio_request_state_change(strm, AAudioStream_requestPause, AAUDIO_STREAM_STATE_PAUSED, 0));
+	return -OP_ERROR_AAUDIO(do_state_change(AAudioStream_requestPause, AAUDIO_STREAM_STATE_PAUSED, 0));
 }
 
 REQUIRES_API(AAUDIO_MINIMUM_API)
@@ -698,7 +714,7 @@ static int op_aaudio_unpause(void)
 {
 	// request stream start, wait until it starts to start (i.e., will start
 	// consuming frames written to it)
-	return -OP_ERROR_AAUDIO(aaudio_request_state_change(strm, AAudioStream_requestStart, AAUDIO_STREAM_STATE_STARTED, AAUDIO_STREAM_STATE_STARTING));
+	return -OP_ERROR_AAUDIO(do_state_change(AAudioStream_requestStart, AAUDIO_STREAM_STATE_STARTED, AAUDIO_STREAM_STATE_STARTING));
 }
 
 REQUIRES_API(AAUDIO_MINIMUM_API)
