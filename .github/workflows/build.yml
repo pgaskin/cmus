@@ -47,7 +47,7 @@ jobs:
           make install DESTDIR=${PWD}/tmp
           XZ_OPT=-9 tar -cJf cmus.tar.xz -C "${PWD}/tmp" .
       - name: Upload
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: cmus (${{matrix.os}}, ${{matrix.cc}})
           path: cmus.tar.xz
@@ -59,14 +59,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Build op/aaudio.so
         run: ${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/clang -target ${{matrix.arch}}-linux-android26 -shared -o op/aaudio.so -fPIC -D__ANDROID_UNAVAILABLE_SYMBOLS_ARE_WEAK__ -Werror=unguarded-availability -Wall -std=gnu11 op/aaudio.c -laaudio
-      - name: Archive
-        run: |
-          XZ_OPT=-9 tar -cJf cmus.tar.xz op/aaudio.so
       - name: Upload
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: cmus (android, ndk, ${{matrix.arch}})
-          path: cmus.tar.xz
+          path: op/aaudio.so

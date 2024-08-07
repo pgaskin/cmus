@@ -43,47 +43,177 @@
 #include "../utils.h"
 #include "../xmalloc.h"
 
-// see the AAudio.h channel mask enum
-// note that this happens to match the wav channel order
-static channel_position_t cmus_channel_by_aaudio[CHANNELS_MAX] = { // [AAUDIO_CHANNEL_* shift] = cmus channel
-	/* AAUDIO_CHANNEL_FRONT_LEFT            = 1 <<  0 */ CHANNEL_POSITION_FRONT_LEFT,
-	/* AAUDIO_CHANNEL_FRONT_RIGHT           = 1 <<  1 */ CHANNEL_POSITION_FRONT_RIGHT,
-	/* AAUDIO_CHANNEL_FRONT_CENTER          = 1 <<  2 */ CHANNEL_POSITION_FRONT_CENTER,
-	/* AAUDIO_CHANNEL_LOW_FREQUENCY         = 1 <<  3 */ CHANNEL_POSITION_LFE,
-	/* AAUDIO_CHANNEL_BACK_LEFT             = 1 <<  4 */ CHANNEL_POSITION_REAR_LEFT,
-	/* AAUDIO_CHANNEL_BACK_RIGHT            = 1 <<  5 */ CHANNEL_POSITION_REAR_RIGHT,
-	/* AAUDIO_CHANNEL_FRONT_LEFT_OF_CENTER  = 1 <<  6 */ CHANNEL_POSITION_FRONT_LEFT_OF_CENTER,
-	/* AAUDIO_CHANNEL_FRONT_RIGHT_OF_CENTER = 1 <<  7 */ CHANNEL_POSITION_FRONT_RIGHT_OF_CENTER,
-	/* AAUDIO_CHANNEL_BACK_CENTER           = 1 <<  8 */ CHANNEL_POSITION_REAR_CENTER,
-	/* AAUDIO_CHANNEL_SIDE_LEFT             = 1 <<  9 */ CHANNEL_POSITION_SIDE_LEFT,
-	/* AAUDIO_CHANNEL_SIDE_RIGHT            = 1 << 10 */ CHANNEL_POSITION_SIDE_RIGHT,
-	/* AAUDIO_CHANNEL_TOP_CENTER            = 1 << 11 */ CHANNEL_POSITION_TOP_CENTER,
-	/* AAUDIO_CHANNEL_TOP_FRONT_LEFT        = 1 << 12 */ CHANNEL_POSITION_TOP_FRONT_LEFT,
-	/* AAUDIO_CHANNEL_TOP_FRONT_CENTER      = 1 << 13 */ CHANNEL_POSITION_TOP_FRONT_CENTER,
-	/* AAUDIO_CHANNEL_TOP_FRONT_RIGHT       = 1 << 14 */ CHANNEL_POSITION_TOP_FRONT_RIGHT,
-	/* AAUDIO_CHANNEL_TOP_BACK_LEFT         = 1 << 15 */ CHANNEL_POSITION_TOP_REAR_LEFT,
-	/* AAUDIO_CHANNEL_TOP_BACK_CENTER       = 1 << 16 */ CHANNEL_POSITION_TOP_REAR_CENTER,
-	/* AAUDIO_CHANNEL_TOP_BACK_RIGHT        = 1 << 17 */ CHANNEL_POSITION_TOP_REAR_RIGHT,
-	/* AAUDIO_CHANNEL_TOP_SIDE_LEFT         = 1 << 18 */ CHANNEL_POSITION_INVALID,
-	/* AAUDIO_CHANNEL_TOP_SIDE_RIGHT        = 1 << 19 */ CHANNEL_POSITION_INVALID,
-	/* AAUDIO_CHANNEL_BOTTOM_FRONT_LEFT     = 1 << 20 */ CHANNEL_POSITION_INVALID,
-	/* AAUDIO_CHANNEL_BOTTOM_FRONT_CENTER   = 1 << 21 */ CHANNEL_POSITION_INVALID,
-	/* AAUDIO_CHANNEL_BOTTOM_FRONT_RIGHT    = 1 << 22 */ CHANNEL_POSITION_INVALID,
-	/* AAUDIO_CHANNEL_LOW_FREQUENCY_2       = 1 << 23 */ CHANNEL_POSITION_INVALID,
-	/* AAUDIO_CHANNEL_FRONT_WIDE_LEFT       = 1 << 24 */ CHANNEL_POSITION_INVALID,
-	/* AAUDIO_CHANNEL_FRONT_WIDE_RIGHT      = 1 << 25 */ CHANNEL_POSITION_INVALID,
-	/*                                                */ CHANNEL_POSITION_INVALID,
-	/*                                                */ CHANNEL_POSITION_INVALID,
-	/*                                                */ CHANNEL_POSITION_INVALID,
-	/*                                                */ CHANNEL_POSITION_INVALID,
-	/*                                                */ CHANNEL_POSITION_INVALID,
-	/*                                                */ CHANNEL_POSITION_INVALID,
-};
+// mapping from AAUDIO_CHANNEL_* enum values to cmus channel_position_t values
+//
+// cat "$(find ${ANDROID_NDK_HOME:-$ANDROID_HOME/ndk} -wholename '*/aaudio/AAudio.h' | sort -n | tail -n1)" |
+// grep AAUDIO_CHANNEL | tr -d ' \n' | tr '|,' ' \n' | grep -F '<<' |
+// cut -d '_' -f3- | cut -d '=' -f1 | xargs printf '#define A2C__%s\tCHANNEL_POSITION_INVALID\n' |
+// column -s $'\t' -t | tee /dev/stderr | cut -d ' ' -f2 | cut -d '_' -f3- |
+// xargs printf ' X(%s)' | xargs -0 printf '#define A2C_CHANNELS%s\n'
+#define A2C__FRONT_LEFT            CHANNEL_POSITION_FRONT_LEFT
+#define A2C__FRONT_RIGHT           CHANNEL_POSITION_FRONT_RIGHT
+#define A2C__FRONT_CENTER          CHANNEL_POSITION_FRONT_CENTER
+#define A2C__LOW_FREQUENCY         CHANNEL_POSITION_LFE
+#define A2C__BACK_LEFT             CHANNEL_POSITION_REAR_LEFT
+#define A2C__BACK_RIGHT            CHANNEL_POSITION_REAR_RIGHT
+#define A2C__FRONT_LEFT_OF_CENTER  CHANNEL_POSITION_FRONT_LEFT_OF_CENTER
+#define A2C__FRONT_RIGHT_OF_CENTER CHANNEL_POSITION_FRONT_RIGHT_OF_CENTER
+#define A2C__BACK_CENTER           CHANNEL_POSITION_REAR_CENTER
+#define A2C__SIDE_LEFT             CHANNEL_POSITION_SIDE_LEFT
+#define A2C__SIDE_RIGHT            CHANNEL_POSITION_SIDE_RIGHT
+#define A2C__TOP_CENTER            CHANNEL_POSITION_TOP_CENTER
+#define A2C__TOP_FRONT_LEFT        CHANNEL_POSITION_TOP_FRONT_LEFT
+#define A2C__TOP_FRONT_CENTER      CHANNEL_POSITION_TOP_FRONT_CENTER
+#define A2C__TOP_FRONT_RIGHT       CHANNEL_POSITION_TOP_FRONT_RIGHT
+#define A2C__TOP_BACK_LEFT         CHANNEL_POSITION_TOP_REAR_LEFT
+#define A2C__TOP_BACK_CENTER       CHANNEL_POSITION_TOP_REAR_CENTER
+#define A2C__TOP_BACK_RIGHT        CHANNEL_POSITION_TOP_REAR_RIGHT
+#define A2C__TOP_SIDE_LEFT         CHANNEL_POSITION_INVALID
+#define A2C__TOP_SIDE_RIGHT        CHANNEL_POSITION_INVALID
+#define A2C__BOTTOM_FRONT_LEFT     CHANNEL_POSITION_INVALID
+#define A2C__BOTTOM_FRONT_CENTER   CHANNEL_POSITION_INVALID
+#define A2C__BOTTOM_FRONT_RIGHT    CHANNEL_POSITION_INVALID
+#define A2C__LOW_FREQUENCY_2       CHANNEL_POSITION_INVALID
+#define A2C__FRONT_WIDE_LEFT       CHANNEL_POSITION_INVALID
+#define A2C__FRONT_WIDE_RIGHT      CHANNEL_POSITION_INVALID
+#define A2C_CHANNELS X(FRONT_LEFT) X(FRONT_RIGHT) X(FRONT_CENTER) X(LOW_FREQUENCY) X(BACK_LEFT) X(BACK_RIGHT) X(FRONT_LEFT_OF_CENTER) X(FRONT_RIGHT_OF_CENTER) X(BACK_CENTER) X(SIDE_LEFT) X(SIDE_RIGHT) X(TOP_CENTER) X(TOP_FRONT_LEFT) X(TOP_FRONT_CENTER) X(TOP_FRONT_RIGHT) X(TOP_BACK_LEFT) X(TOP_BACK_CENTER) X(TOP_BACK_RIGHT) X(TOP_SIDE_LEFT) X(TOP_SIDE_RIGHT) X(BOTTOM_FRONT_LEFT) X(BOTTOM_FRONT_CENTER) X(BOTTOM_FRONT_RIGHT) X(LOW_FREQUENCY_2) X(FRONT_WIDE_LEFT) X(FRONT_WIDE_RIGHT)
+
+// mapping from AAUDIO_CHANNEL_* masks to cmus channel_position_t lists
+//
+// cat "$(find ${ANDROID_NDK_HOME:-$ANDROID_HOME/ndk} -wholename '*/aaudio/AAudio.h' | sort -n | tail -n1)" |
+// grep AAUDIO_CHANNEL | tr -d ' \n' | tr '|,' ',\n' | grep -Fve '<<' -e '-1' |
+// cut -d '_' -f3- | xargs printf '#define A2C__%s\n' | tr '=' '\t' | sed -E 's/AAUDIO_CHANNEL_([A-Z0-9_]+)/A2C__\1/g' | 
+// column -s $'\t' -t | tee /dev/stderr | cut -d ' ' -f2 | cut -d '_' -f3- |
+// xargs printf ' X(%s)' | xargs -0 printf '#define A2C_LAYOUTS%s\n'
+#define A2C__MONO           A2C__FRONT_LEFT
+#define A2C__STEREO         A2C__FRONT_LEFT,A2C__FRONT_RIGHT
+#define A2C__2POINT1        A2C__FRONT_LEFT,A2C__FRONT_RIGHT,A2C__LOW_FREQUENCY
+#define A2C__TRI            A2C__FRONT_LEFT,A2C__FRONT_RIGHT,A2C__FRONT_CENTER
+#define A2C__TRI_BACK       A2C__FRONT_LEFT,A2C__FRONT_RIGHT,A2C__BACK_CENTER
+#define A2C__3POINT1        A2C__FRONT_LEFT,A2C__FRONT_RIGHT,A2C__FRONT_CENTER,A2C__LOW_FREQUENCY
+#define A2C__2POINT0POINT2  A2C__FRONT_LEFT,A2C__FRONT_RIGHT,A2C__TOP_SIDE_LEFT,A2C__TOP_SIDE_RIGHT
+#define A2C__2POINT1POINT2  A2C__2POINT0POINT2,A2C__LOW_FREQUENCY
+#define A2C__3POINT0POINT2  A2C__FRONT_LEFT,A2C__FRONT_RIGHT,A2C__FRONT_CENTER,A2C__TOP_SIDE_LEFT,A2C__TOP_SIDE_RIGHT
+#define A2C__3POINT1POINT2  A2C__3POINT0POINT2,A2C__LOW_FREQUENCY
+#define A2C__QUAD           A2C__FRONT_LEFT,A2C__FRONT_RIGHT,A2C__BACK_LEFT,A2C__BACK_RIGHT
+#define A2C__QUAD_SIDE      A2C__FRONT_LEFT,A2C__FRONT_RIGHT,A2C__SIDE_LEFT,A2C__SIDE_RIGHT
+#define A2C__SURROUND       A2C__FRONT_LEFT,A2C__FRONT_RIGHT,A2C__FRONT_CENTER,A2C__BACK_CENTER
+#define A2C__PENTA          A2C__QUAD,A2C__FRONT_CENTER
+#define A2C__5POINT1        A2C__FRONT_LEFT,A2C__FRONT_RIGHT,A2C__FRONT_CENTER,A2C__LOW_FREQUENCY,A2C__BACK_LEFT,A2C__BACK_RIGHT
+#define A2C__5POINT1_SIDE   A2C__FRONT_LEFT,A2C__FRONT_RIGHT,A2C__FRONT_CENTER,A2C__LOW_FREQUENCY,A2C__SIDE_LEFT,A2C__SIDE_RIGHT
+#define A2C__6POINT1        A2C__FRONT_LEFT,A2C__FRONT_RIGHT,A2C__FRONT_CENTER,A2C__LOW_FREQUENCY,A2C__BACK_LEFT,A2C__BACK_RIGHT,A2C__BACK_CENTER
+#define A2C__7POINT1        A2C__5POINT1,A2C__SIDE_LEFT,A2C__SIDE_RIGHT
+#define A2C__5POINT1POINT2  A2C__5POINT1,A2C__TOP_SIDE_LEFT,A2C__TOP_SIDE_RIGHT
+#define A2C__5POINT1POINT4  A2C__5POINT1,A2C__TOP_FRONT_LEFT,A2C__TOP_FRONT_RIGHT,A2C__TOP_BACK_LEFT,A2C__TOP_BACK_RIGHT
+#define A2C__7POINT1POINT2  A2C__7POINT1,A2C__TOP_SIDE_LEFT,A2C__TOP_SIDE_RIGHT
+#define A2C__7POINT1POINT4  A2C__7POINT1,A2C__TOP_FRONT_LEFT,A2C__TOP_FRONT_RIGHT,A2C__TOP_BACK_LEFT,A2C__TOP_BACK_RIGHT
+#define A2C__9POINT1POINT4  A2C__7POINT1POINT4,A2C__FRONT_WIDE_LEFT,A2C__FRONT_WIDE_RIGHT
+#define A2C__9POINT1POINT6  A2C__9POINT1POINT4,A2C__TOP_SIDE_LEFT,A2C__TOP_SIDE_RIGHT
+#define A2C__FRONT_BACK     A2C__FRONT_CENTER,A2C__BACK_CENTER
+#define A2C_LAYOUTS X(MONO) X(STEREO) X(2POINT1) X(TRI) X(TRI_BACK) X(3POINT1) X(2POINT0POINT2) X(2POINT1POINT2) X(3POINT0POINT2) X(3POINT1POINT2) X(QUAD) X(QUAD_SIDE) X(SURROUND) X(PENTA) X(5POINT1) X(5POINT1_SIDE) X(6POINT1) X(7POINT1) X(5POINT1POINT2) X(5POINT1POINT4) X(7POINT1POINT2) X(7POINT1POINT4) X(9POINT1POINT4) X(9POINT1POINT6) X(FRONT_BACK)
+
+// convert a cmus channel map to an equivalent aaudio channel mask (the returned
+// value will either be invalid or have the same number of bits set as the
+// number of channels)
+static aaudio_channel_mask_t cmus_channel_map_to_aaudio_mask(int channels, const channel_position_t *channel_map) {
+	aaudio_channel_mask_t mask = 0;
+
+	// we can only convert a valid channel map
+	if (channels >= CHANNELS_MAX || !channel_map || !channel_map_valid(channel_map)) {
+		return AAUDIO_CHANNEL_INVALID;
+	}
+
+	// special case for mono since cmus defines a separate channel position
+	// for it
+	if (channels == 1 && channel_map[0] == CHANNEL_POSITION_MONO) {
+		return AAUDIO_CHANNEL_FRONT_LEFT;
+	}
+
+	// fill the mask, returning invalid if it has duplicates or no mapping
+	for (int i = 0; i < channels; i++) {
+		#define X(aaudio) \
+		if (A2C__##aaudio != CHANNEL_POSITION_INVALID && channel_map[i] == A2C__##aaudio) { \
+			if (mask & AAUDIO_CHANNEL_##aaudio) \
+				return AAUDIO_CHANNEL_INVALID; \
+			mask |= AAUDIO_CHANNEL_##aaudio; \
+		}
+		A2C_CHANNELS
+		#undef X
+	}
+
+	return mask;
+}
+
+// get the expected cmus channel order for the specified aaudio channel mask
+static bool channel_map_init_aaudio(aaudio_channel_mask_t mask, channel_position_t *map) {
+	switch (mask) {
+	#define X(aaudio) \
+	case AAUDIO_CHANNEL_##aaudio: channel_map_copy(map, (channel_position_t[CHANNELS_MAX]){ A2C__##aaudio }); return true;
+	A2C_LAYOUTS
+	#undef X
+	}
+	return false;
+}
+
+// get the name of a known aaudio channel mask
+static const char *aaudio_channel_to_string(aaudio_channel_mask_t mask) {
+	switch (mask) {
+		#define X(aaudio) \
+		case AAUDIO_CHANNEL_##aaudio: return #aaudio;
+		A2C_CHANNELS
+		#undef X
+	}
+	switch (mask) {
+		#define X(aaudio) \
+		case AAUDIO_CHANNEL_##aaudio: return #aaudio;
+		A2C_LAYOUTS
+		#undef X
+	}
+	return NULL;
+}
+
+// fill a map of output frame byte indexes to input frame byte indexes (or
+// -1 to zero) to remap channels (map must be sf_get_frame_size elements)
+static void make_channel_remap(ssize_t *map, const channel_position_t *channel_map_out, const channel_position_t *channel_map_in, sample_format_t sf) {
+	int byte, channel_out, channel_in;
+
+	if (!channel_map_out || !channel_map_valid(channel_map_out) || !channel_map_in || !channel_map_valid(channel_map_in)) {
+		for (byte = 0; byte < sf_get_frame_size(sf); byte++) {
+			map[byte] = byte;
+		}
+	} else {
+		for (byte = 0; byte < sf_get_frame_size(sf); byte++) {
+			map[byte] = -1;
+		}
+		for (channel_out = 0; channel_out < sf_get_channels(sf); channel_out++) {
+			if (channel_map_out[channel_out] != CHANNEL_POSITION_INVALID) {
+				for (channel_in = 0; channel_in < sf_get_channels(sf); channel_in++) {
+					if (channel_map_in[channel_in] == channel_map_out[channel_out]) {
+						for (byte = 0; byte < sf_get_sample_size(sf); byte++) {
+							map[sf_get_sample_size(sf) * channel_out + byte] = (ssize_t) sf_get_sample_size(sf) * channel_in + byte;
+						}
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	d_print("remap bytes");
+	for (byte = 0; byte < sf_get_frame_size(sf); byte++) {
+		d_print(" %03zd", map[byte]);
+	}
+	d_print("\n");
+}
 
 static AAudioStream *strm;
 static int32_t strm_frame_size;
 static int32_t strm_last_device;
 static bool strm_errored;
+static bool strm_remap;
+static ssize_t *strm_remap_map;
+static char *strm_remap_buf;
+static size_t strm_remap_buf_sz;
 static int mixer_notify_output_in, mixer_notify_output_out;
 
 // note: all options require restarting the output stream to apply
@@ -283,6 +413,8 @@ REQUIRES_API(AAUDIO_MINIMUM_API)
 static int op_aaudio_open(sample_format_t sf, const channel_position_t *channel_map)
 {
 	aaudio_result_t rc;
+	aaudio_channel_mask_t mask;
+	channel_position_t mask_expected_channels[CHANNELS_MAX];
 	AAudioStreamBuilder *bld;
 
 	// create the stream builder
@@ -301,25 +433,36 @@ static int op_aaudio_open(sample_format_t sf, const channel_position_t *channel_
 	if (API_AT_LEAST(31)) AAudioStreamBuilder_setAttributionTag(bld, "cmus");
 	if (API_AT_LEAST(32)) AAudioStreamBuilder_setSpatializationBehavior(bld, op_aaudio_opt_disable_spatialization ? AAUDIO_SPATIALIZATION_BEHAVIOR_NEVER : AAUDIO_SPATIALIZATION_BEHAVIOR_AUTO);
 
-	// apply the channel layout
+	// set the channel count
+	//
+	// note: if no channel mask is set, aaudio will treat the first two
+	// channels as left/right (duplicating mono to stereo if required), and
+	// leave the rest up to the device, dropping them if the device doesn't
+	// have that many channels
 	AAudioStreamBuilder_setChannelCount(bld, sf_get_channels(sf));
 
-	// if not mono audio, validate the channel layout
-	if (sf_get_channels(sf) != 1) {
-		// if we have a channel map, ensure it matches the aaudio channel map
-		// TODO: on api 32, we can set a channel mask to skip channels
-		// TODO: maybe add code for remapping channels into the correct order if necessary
-		if (channel_map && channel_map_valid(channel_map)) {
-			// for each channel in the frame
-			for (int i = 0; i < sf_get_channels(sf); i++) {
-				// if the channel aaudio wants is not the channel the input has
-				if (cmus_channel_by_aaudio[i] != channel_map[i]) {
-					d_print("aaudio channel idx %d maps to cmus channel position %d, but input channel idx %d maps to cmus channel position %d (and we don't currently support channel remapping, so we can't play this channel layout)\n", i, cmus_channel_by_aaudio[i], i, channel_map[i]);
-					return -OP_ERROR_SAMPLE_FORMAT;
+	// if we have a channel map, apply it on a best-effort basis
+	strm_remap = false;
+	if (channel_map && channel_map_valid(channel_map)) {
+		if (API_AT_LEAST(32)) {
+			mask = cmus_channel_map_to_aaudio_mask(sf_get_channels(sf), channel_map);
+			d_print("channel map aaudio mask %d (%s)\n", mask, aaudio_channel_to_string(mask) ? aaudio_channel_to_string(mask) : "(null)");
+			if (mask == AAUDIO_CHANNEL_INVALID) {
+				d_print("not applying channel map since it contains duplicates or not all channels have an aaudio equivalent\n");
+			} else {
+				if (!channel_map_init_aaudio(mask, mask_expected_channels)) {
+					d_print("not applying channel map since there isn't a valid cmus channel mapping for the aaudio mask\n");
+				} else {
+					if (!channel_map_equal(channel_map, mask_expected_channels, sf_get_channels(sf))) {
+						d_print("will remap channels since the input channel_map order doesn't match the order expected by aaudio\n");
+						strm_remap = true;
+						strm_remap_map = xnew(ssize_t, (size_t) sf_get_frame_size(sf));
+						make_channel_remap(strm_remap_map, mask_expected_channels, channel_map, sf);
+					}
+					d_print("applying channel mask\n");
+					AAudioStreamBuilder_setChannelMask(bld, mask);
 				}
 			}
-		} else {
-			// if we don't, assume it's in the wav ordering, which happens to match what aaudio expects
 		}
 	}
 
@@ -370,7 +513,13 @@ static int op_aaudio_open(sample_format_t sf, const channel_position_t *channel_
 		return -OP_ERROR_INTERNAL;
 	}
 	d_print("optimal buffer frames = %d\n", AAudioStream_getFramesPerBurst(strm));
-	d_print("max non-blocking buffer frames = %d\n", AAudioStream_getBufferSizeInFrames(strm));
+	d_print("buffer capacity frames = %d\n", AAudioStream_getBufferCapacityInFrames(strm));
+
+	if (strm_remap) {
+		strm_remap_buf_sz = (size_t) AAudioStream_getBufferCapacityInFrames(strm) * (size_t) sf_get_frame_size(sf);
+		d_print("allocating %zu bytes for remap buffer\n", strm_remap_buf_sz);
+		strm_remap_buf = xmalloc(strm_remap_buf_sz);
+	}
 
 	// cleanup the stream builder
 	rc = AAudioStreamBuilder_delete(bld);
@@ -387,6 +536,14 @@ static int op_aaudio_open(sample_format_t sf, const channel_position_t *channel_
 REQUIRES_API(AAUDIO_MINIMUM_API)
 static int op_aaudio_close(void)
 {
+	if (strm_remap_map) {
+		free(strm_remap_map);
+		strm_remap_map = NULL;
+	}
+	if (strm_remap_buf) {
+		free(strm_remap_buf);
+		strm_remap_buf = NULL;
+	}
 	if (strm) {
 		AAudioStream_close(strm);
 		strm = NULL;
@@ -431,7 +588,10 @@ static int op_aaudio_drop(void)
 REQUIRES_API(AAUDIO_MINIMUM_API)
 static int op_aaudio_write(const char *buf, int count)
 {
+	int i, j;
+	int32_t device;
 	aaudio_result_t rc;
+	aaudio_stream_state_t state;
 
 	// if the stream errored, return an error so cmus restarts the output
 	// plugin
@@ -446,7 +606,7 @@ static int op_aaudio_write(const char *buf, int count)
 	}
 
 	// note: this is cheap; it's just a field getter internally
-	int32_t device = AAudioStream_getDeviceId(strm);
+	device = AAudioStream_getDeviceId(strm);
 	if (strm_last_device != device) {
 		if (strm_last_device != -1) {
 			notify_via_pipe(mixer_notify_output_in);
@@ -459,7 +619,7 @@ static int op_aaudio_write(const char *buf, int count)
 	// stream is somewhat expensive)
 	//
 	// note: this is cheap; it's just a atomic field getter internally
-	aaudio_stream_state_t state = AAudioStream_getState(strm);
+	state = AAudioStream_getState(strm);
 	if (state == AAUDIO_STREAM_STATE_CLOSING || state == AAUDIO_STREAM_STATE_CLOSED) {
 		return -OP_ERROR_NOT_OPEN;
 	}
@@ -468,6 +628,28 @@ static int op_aaudio_write(const char *buf, int count)
 		if (rc) {
 			return -OP_ERROR_INTERNAL;
 		}
+	}
+
+	// remap if necessary
+	if (strm_remap) {
+		if (count >= strm_remap_buf_sz) {
+			// this should never happen since op_aaudio_buffer_space
+			// (i.e., AAudioStream_getFramesPerBurst or
+			// AAudioStream_getBufferSizeInFrames) should always be
+			// less than AAudioStream_getBufferCapacityInFrames
+			BUG("cannot remap since trying to write %d >= %zu bytes (n > buffer capacity)\n", count, strm_remap_buf_sz);
+			return -OP_ERROR_INTERNAL;
+		}
+		for (i = 0; i < count; i += strm_frame_size) {
+			for (j = 0; j < strm_frame_size; j++) {
+				if (strm_remap_map[j] != -1) {
+					strm_remap_buf[i+j] = buf[i+strm_remap_map[j]];
+				} else {
+					strm_remap_buf[i+j] = 0;
+				}
+			}
+		}
+		buf = strm_remap_buf;
 	}
 
 	// synchronously write the samples to the buffer
