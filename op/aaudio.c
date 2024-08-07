@@ -206,10 +206,65 @@ static void make_channel_remap(ssize_t *map, const channel_position_t *channel_m
 	d_print("\n");
 }
 
+REQUIRES_API(AAUDIO_MINIMUM_API)
+static aaudio_result_t aaudio_request_state_change(AAudioStream *stream, aaudio_result_t (*request)(AAudioStream *strm), aaudio_stream_state_t state, aaudio_stream_state_t state2)
+{
+	aaudio_result_t rc;
+
+	if (request) {
+		d_print("request state change\n");
+		rc = request(stream);
+		if (rc) {
+			return rc;
+		}
+	}
+
+	d_print("wait state change (%d:%s || %d:%s)\n", state, AAudio_convertStreamStateToText(state), state2, AAudio_convertStreamStateToText(state2));
+	aaudio_stream_state_t currentState = AAudioStream_getState(stream);
+	aaudio_stream_state_t inputState = currentState;
+	rc = AAUDIO_OK;
+	while (rc == AAUDIO_OK && currentState != state && (state2 == 0 || currentState != state2)) {
+		d_print("current state change %d\r\n", currentState);
+		rc = AAudioStream_waitForStateChange(stream, inputState, &currentState, INT64_MAX);
+		inputState = currentState;
+	}
+	if (rc) {
+		d_print("failed state change (%d - %s) [current=%d:%s]\n", rc, AAudio_convertResultToText(rc), currentState, AAudio_convertStreamStateToText(currentState));
+	} else {
+		d_print("done state change [current=%d:%s]\n", currentState, AAudio_convertStreamStateToText(currentState));
+	}
+	return rc;
+}
+
+// maps an res to a suitable error code
+static int OP_ERROR_AAUDIO(aaudio_result_t res) {
+	// see https://android.googlesource.com/platform/bionic/+/refs/heads/main/libc/private/bionic_errdefs.h
+	switch (res) {
+	case AAUDIO_OK:                                           return 0;
+	case AAUDIO_ERROR_INTERNAL:                               return OP_ERROR_INTERNAL;
+	case AAUDIO_ERROR_NO_SERVICE:                             return OP_ERROR_NOT_SUPPORTED;
+	case AAUDIO_ERROR_INVALID_FORMAT:                         return OP_ERROR_SAMPLE_FORMAT;
+	case AAUDIO_ERROR_INVALID_RATE:                           return OP_ERROR_SAMPLE_FORMAT;
+	case AAUDIO_ERROR_UNAVAILABLE:      errno = ECONNREFUSED; return OP_ERROR_ERRNO; // Connection refused
+	case AAUDIO_ERROR_DISCONNECTED:     errno = ECONNRESET;   return OP_ERROR_ERRNO; // Connection reset by peer
+	case AAUDIO_ERROR_TIMEOUT:          errno = ETIMEDOUT;    return OP_ERROR_ERRNO; // Connection timed out
+	case AAUDIO_ERROR_WOULD_BLOCK:      errno = ENOBUFS;      return OP_ERROR_ERRNO; // No buffer space available
+	case AAUDIO_ERROR_UNIMPLEMENTED:    errno = ENOSYS;       return OP_ERROR_ERRNO; // Function not implemented
+	case AAUDIO_ERROR_NO_FREE_HANDLES:  errno = EMFILE;       return OP_ERROR_ERRNO; // Too many open files
+	case AAUDIO_ERROR_NO_MEMORY:        errno = ENOMEM;       return OP_ERROR_ERRNO; // Out of memory
+	case AAUDIO_ERROR_NULL:             errno = EFAULT;       return OP_ERROR_ERRNO; // Bad address
+	case AAUDIO_ERROR_OUT_OF_RANGE:     errno = EINVAL;       return OP_ERROR_ERRNO; // Invalid argument
+	case AAUDIO_ERROR_INVALID_HANDLE:   errno = EBADF;        return OP_ERROR_ERRNO; // Bad file descriptor
+	case AAUDIO_ERROR_INVALID_STATE:    errno = EBADFD;       return OP_ERROR_ERRNO; // File descriptor in bad state
+	case AAUDIO_ERROR_ILLEGAL_ARGUMENT: errno = EINVAL;       return OP_ERROR_ERRNO; // Invalid argument
+	default:                                                  return OP_ERROR_INTERNAL;
+	}
+}
+
 static AAudioStream *strm;
 static int32_t strm_frame_size;
 static int32_t strm_last_device;
-static bool strm_errored;
+static aaudio_result_t strm_error;
 static bool strm_remap;
 static ssize_t *strm_remap_map;
 static char *strm_remap_buf;
@@ -362,36 +417,6 @@ static int op_aaudio_init(void)
 }
 
 REQUIRES_API(AAUDIO_MINIMUM_API)
-static aaudio_result_t aaudio_request_state_change(AAudioStream *stream, aaudio_result_t (*request)(AAudioStream *strm), aaudio_stream_state_t state, aaudio_stream_state_t state2)
-{
-	aaudio_result_t rc;
-
-	if (request) {
-		d_print("request state change\n");
-		rc = request(stream);
-		if (rc) {
-			return rc;
-		}
-	}
-
-	d_print("wait state change (%d:%s || %d:%s)\n", state, AAudio_convertStreamStateToText(state), state2, AAudio_convertStreamStateToText(state2));
-	aaudio_stream_state_t currentState = AAudioStream_getState(stream);
-	aaudio_stream_state_t inputState = currentState;
-	rc = AAUDIO_OK;
-	while (rc == AAUDIO_OK && currentState != state && (state2 == 0 || currentState != state2)) {
-		d_print("current state change %d\r\n", currentState);
-		rc = AAudioStream_waitForStateChange(stream, inputState, &currentState, INT64_MAX);
-		inputState = currentState;
-	}
-	if (rc) {
-		d_print("failed state change (%d - %s) [current=%d:%s]\n", rc, AAudio_convertResultToText(rc), currentState, AAudio_convertStreamStateToText(currentState));
-	} else {
-		d_print("done state change [current=%d:%s]\n", currentState, AAudio_convertStreamStateToText(currentState));
-	}
-	return rc;
-}
-
-REQUIRES_API(AAUDIO_MINIMUM_API)
 static int op_aaudio_exit(void)
 {
 	close(mixer_notify_output_out);
@@ -406,7 +431,7 @@ static void handle_error(AAudioStream *stream, void *userData, aaudio_result_t e
 		notify_via_pipe(mixer_notify_output_in);
 	}
 	d_print("stream errored (%d - %s)\n", error, AAudio_convertResultToText(error));
-	strm_errored = true;
+	strm_error = error;
 }
 
 REQUIRES_API(AAUDIO_MINIMUM_API)
@@ -421,7 +446,7 @@ static int op_aaudio_open(sample_format_t sf, const channel_position_t *channel_
 	rc = AAudio_createStreamBuilder(&bld);
 	if (rc) {
 		d_print("create stream builder failed (%d - %s)\n", rc, AAudio_convertResultToText(rc));
-		return -OP_ERROR_INTERNAL;
+		return -OP_ERROR_AAUDIO(rc);
 	}
 
 	// apply the options
@@ -502,15 +527,12 @@ static int op_aaudio_open(sample_format_t sf, const channel_position_t *channel_
 	// open the stream
 	strm_frame_size = sf_get_frame_size(sf);
 	strm_last_device = -1;
-	strm_errored = false;
+	strm_error = 0;
 	rc = AAudioStreamBuilder_openStream(bld, &strm);
 	if (rc) {
 		d_print("open stream failed (%d - %s)\n", rc, AAudio_convertResultToText(rc));
 		AAudioStreamBuilder_delete(bld);
-		if (rc == AAUDIO_ERROR_INVALID_RATE || rc == AAUDIO_ERROR_INVALID_FORMAT) {
-			return -OP_ERROR_SAMPLE_FORMAT;
-		}
-		return -OP_ERROR_INTERNAL;
+		return -OP_ERROR_AAUDIO(rc);
 	}
 	d_print("optimal buffer frames = %d\n", AAudioStream_getFramesPerBurst(strm));
 	d_print("buffer capacity frames = %d\n", AAudioStream_getBufferCapacityInFrames(strm));
@@ -526,7 +548,7 @@ static int op_aaudio_open(sample_format_t sf, const channel_position_t *channel_
 	if (rc) {
 		d_print("delete stream builder failed (%d - %s)\n", rc, AAudio_convertResultToText(rc));
 		AAudioStream_close(strm);
-		return -OP_ERROR_INTERNAL;
+		return -OP_ERROR_AAUDIO(rc);
 	}
 
 	// done (we don't actually start the stream until the first write)
@@ -570,7 +592,7 @@ static int op_aaudio_drop(void)
 		if (orig_state == AAUDIO_STREAM_STATE_STARTED || orig_state == AAUDIO_STREAM_STATE_STARTING) {
 			rc = aaudio_request_state_change(strm, AAudioStream_requestPause, AAUDIO_STREAM_STATE_PAUSED, 0);
 			if (rc) {
-				return -OP_ERROR_INTERNAL;
+				return -OP_ERROR_AAUDIO(rc);
 			}
 			// the stream will be started again on the first write
 		}
@@ -578,7 +600,7 @@ static int op_aaudio_drop(void)
 		// flush the stream
 		rc = aaudio_request_state_change(strm, AAudioStream_requestFlush, AAUDIO_STREAM_STATE_FLUSHED, 0);
 		if (rc) {
-			return -OP_ERROR_INTERNAL;
+			return -OP_ERROR_AAUDIO(rc);
 		}
 	}
 
@@ -601,8 +623,8 @@ static int op_aaudio_write(const char *buf, int count)
 	// reopen the output plugin
 	//
 	// https://github.com/google/oboe/wiki/TechNote_Disconnect
-	if (strm_errored) {
-		return -OP_ERROR_INTERNAL;
+	if (strm_error) {
+		return -OP_ERROR_AAUDIO(strm_error);
 	}
 
 	// note: this is cheap; it's just a field getter internally
@@ -626,7 +648,7 @@ static int op_aaudio_write(const char *buf, int count)
 	if (state != AAUDIO_STREAM_STATE_STARTING && state != AAUDIO_STREAM_STATE_STARTED) {
 		rc = aaudio_request_state_change(strm, AAudioStream_requestStart, AAUDIO_STREAM_STATE_STARTED, AAUDIO_STREAM_STATE_STARTING);
 		if (rc) {
-			return -OP_ERROR_INTERNAL;
+			return -OP_ERROR_AAUDIO(rc);
 		}
 	}
 
@@ -656,7 +678,7 @@ static int op_aaudio_write(const char *buf, int count)
 	rc = AAudioStream_write(strm, buf, count / strm_frame_size, INT64_MAX);
 	if (rc < 0) {
 		d_print("write %d = error %d - %s [device=%d] [state=%d]\n", count / strm_frame_size, rc, AAudio_convertResultToText(rc), device, state);
-		return -OP_ERROR_INTERNAL;
+		return -OP_ERROR_AAUDIO(rc);
 	}
 	d_print("write %d = %d (* %d bytes) [device=%d] [state=%d]\n", count / strm_frame_size, rc, strm_frame_size, device, state);
 
@@ -668,9 +690,7 @@ REQUIRES_API(AAUDIO_MINIMUM_API)
 static int op_aaudio_pause(void)
 {
 	// request stream pause, wait until it completes
-	return aaudio_request_state_change(strm, AAudioStream_requestPause, AAUDIO_STREAM_STATE_PAUSED, 0)
-		? -OP_ERROR_INTERNAL
-		: OP_ERROR_SUCCESS;
+	return -OP_ERROR_AAUDIO(aaudio_request_state_change(strm, AAudioStream_requestPause, AAUDIO_STREAM_STATE_PAUSED, 0));
 }
 
 REQUIRES_API(AAUDIO_MINIMUM_API)
@@ -678,9 +698,7 @@ static int op_aaudio_unpause(void)
 {
 	// request stream start, wait until it starts to start (i.e., will start
 	// consuming frames written to it)
-	return aaudio_request_state_change(strm, AAudioStream_requestStart, AAUDIO_STREAM_STATE_STARTED, AAUDIO_STREAM_STATE_STARTING)
-		? -OP_ERROR_INTERNAL
-		: OP_ERROR_SUCCESS;
+	return -OP_ERROR_AAUDIO(aaudio_request_state_change(strm, AAudioStream_requestStart, AAUDIO_STREAM_STATE_STARTED, AAUDIO_STREAM_STATE_STARTING));
 }
 
 REQUIRES_API(AAUDIO_MINIMUM_API)
