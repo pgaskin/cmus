@@ -498,6 +498,37 @@ check_ffmpeg()
 	return 1
 }
 
+aaudio_code="
+#include <aaudio/AAudio.h>
+int main() {
+	if (__builtin_available(android 26, *)) {
+		AAudioStreamBuilder *bld;
+		if (AAudio_createStreamBuilder(&bld))
+			return 1;
+		if (AAudioStreamBuilder_delete(bld))
+			return 1;
+	}
+	return 0;
+}
+"
+
+check_aaudio()
+{
+	if check_library AAUDIO "" "-laaudio"
+	then
+		AAUDIO_CFLAGS="$AAUDIO_CFLAGS -D__ANDROID_UNAVAILABLE_SYMBOLS_ARE_WEAK__ -Werror=unguarded-availability"
+
+		msg_checking "for aaudio support"
+		if try_compile_link "$aaudio_code" $AAUDIO_CFLAGS $AAUDIO_LIBS
+		then
+			msg_result yes
+			return 0
+		fi
+		msg_result no
+	fi
+	return 1
+}
+
 check_string_function()
 {
 	msg_checking "for function $1"
@@ -543,6 +574,7 @@ Options:
 
 Optional Features: y/n
   CONFIG_AAC            AAC (.aac, audio/aac, audio/aacp)               [auto]
+  CONFIG_AAUDIO         Android 8.0+ native audio output                [auto]
   CONFIG_ALSA           ALSA                                            [auto]
   CONFIG_AO             Libao cross-platform audio library              [auto]
   CONFIG_ARTS           ARTS                                            [auto]
@@ -646,6 +678,7 @@ check check_sndio      CONFIG_SNDIO
 check check_sun        CONFIG_SUN
 check check_waveout    CONFIG_WAVEOUT
 check check_roar       CONFIG_ROAR
+check check_aaudio     CONFIG_AAUDIO
 
 # discid is only needed if at least one cdda plugin is active
 test -z "$CONFIG_DISCID" && CONFIG_DISCID=a
@@ -687,6 +720,6 @@ makefile_vars \
 	CONFIG_MAD CONFIG_MIKMOD CONFIG_MODPLUG CONFIG_MP4 CONFIG_MPC \
 	CONFIG_MPRIS CONFIG_OPUS CONFIG_OSS CONFIG_PULSE CONFIG_ROAR \
 	CONFIG_SAMPLERATE CONFIG_SNDIO CONFIG_SUN CONFIG_VORBIS CONFIG_VTX \
-	CONFIG_WAV CONFIG_WAVEOUT CONFIG_WAVPACK CONFIG_BASS
+	CONFIG_WAV CONFIG_WAVEOUT CONFIG_WAVPACK CONFIG_BASS CONFIG_AAUDIO
 
 generate_config_mk
