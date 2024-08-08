@@ -501,12 +501,15 @@ check_ffmpeg()
 aaudio_code="
 #include <aaudio/AAudio.h>
 int main() {
+	// ensure basic aaudio support
 	if (__builtin_available(android 26, *)) {
 		AAudioStreamBuilder *bld;
-		if (AAudio_createStreamBuilder(&bld))
-			return 1;
-		if (AAudioStreamBuilder_delete(bld))
-			return 1;
+		AAudio_createStreamBuilder(&bld);
+
+		// ensure we have at least api 32 headers
+		if (__builtin_available(android 32, *)) {
+			AAudioStreamBuilder_setChannelMask(bld, AAUDIO_CHANNEL_9POINT1POINT6);
+		}
 	}
 	return 0;
 }
@@ -514,18 +517,16 @@ int main() {
 
 check_aaudio()
 {
-	if check_library AAUDIO "" "-laaudio"
-	then
-		AAUDIO_CFLAGS="$AAUDIO_CFLAGS -D__ANDROID_UNAVAILABLE_SYMBOLS_ARE_WEAK__ -Werror=unguarded-availability"
+	check_header aaudio/AAudio.h || return $?
+	check_library AAUDIO "-D__ANDROID_UNAVAILABLE_SYMBOLS_ARE_WEAK__ -Werror=unguarded-availability" "-Wl,--no-as-needed -laaudio" || return $?
 
-		msg_checking "for aaudio support"
-		if try_compile_link "$aaudio_code" $AAUDIO_CFLAGS $AAUDIO_LIBS
-		then
-			msg_result yes
-			return 0
-		fi
-		msg_result no
+	msg_checking "for working aaudio api 32 linkage"
+	if try_compile_link "$aaudio_code" $AAUDIO_CFLAGS $AAUDIO_LIBS
+	then
+		msg_result yes
+		return 0
 	fi
+	msg_result no
 	return 1
 }
 
