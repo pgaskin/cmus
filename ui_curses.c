@@ -712,12 +712,7 @@ static void print_tree(struct window *win, int row, struct iter *iter)
 	}
 
 	gbuf_add_ch(&print_buffer, ' ');
-	if (flat_library_view) {
-		if (album == NULL)
-			return;
-		fill_track_fopts_album(album);
-		format_print(&print_buffer, tree_win_w - 1, tree_win_flat_format, track_fopts);
-	} else if (album) {
+	if (album) {
 		fill_track_fopts_album(album);
 		format_print(&print_buffer, tree_win_w - 1, tree_win_format, track_fopts);
 	} else {

@@ -146,7 +146,6 @@ extern char *server_password;
 extern int auto_expand_albums_follow;
 extern int auto_expand_albums_search;
 extern int auto_expand_albums_selcur;
-extern int flat_library_view;
 extern int auto_hide_playlists_panel;
 extern int show_all_tracks;
 extern int auto_reshuffle;
@@ -188,7 +187,6 @@ extern int attrs[NR_ATTRS];
 
 /* format string for tree window (tree view) */
 extern char *tree_win_format;
-extern char *tree_win_flat_format;
 extern char *tree_win_artist_format;
 
 /* format string for track window (tree view) */

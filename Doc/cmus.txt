@@ -1054,9 +1054,6 @@ display_artist_sort_name (false)
 	regular ones in tree view (e.g. "Artist, The" instead of "The Artist"),
 	so that artists column looks alphabetically sorted.
 
-flat_library_view (false)
-	In the tree view, display artist and album names on the same line.
-
 follow (false)
 	If enabled, always select the currently playing track on track change.
 
@@ -1115,10 +1112,6 @@ format_treewin [`Format String`]
 
 format_treewin_artist [`Format String`]
 	Format string for artists in tree view's (1) tree window.
-
-format_treewin_flat [`Format String`]
-	Format string for the tree view's (1) tree window when
-	*flat_library_view* is active.
 
 smart_artist_sort (true)
 	If enabled, makes the tree view sorting ignore "The" in front of artist
