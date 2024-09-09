@@ -164,6 +164,9 @@ char *clipped_text_format = NULL;
 char *clipped_text_internal = NULL;
 char *current_format = NULL;
 char *current_alt_format = NULL;
+char *heading_album_format = NULL;
+char *heading_artist_format = NULL;
+char *heading_playlist_format = NULL;
 char *statusline_format = NULL;
 char *window_title_format = NULL;
 char *window_title_alt_format = NULL;
@@ -193,6 +196,7 @@ int parse_enum(const char *buf, int minval, int maxval, const char * const names
 {
 	long int tmp;
 	int i;
+	GBUF(names_buf);
 
 	if (str_to_int(buf, &tmp) == 0) {
 		if (tmp < minval || tmp > maxval)
@@ -208,7 +212,13 @@ int parse_enum(const char *buf, int minval, int maxval, const char * const names
 		}
 	}
 err:
-	error_msg("name or integer in range %d..%d expected", minval, maxval);
+	for (i = 0; names[i]; i++) {
+		if (i)
+			gbuf_add_str(&names_buf, ", ");
+		gbuf_add_str(&names_buf, names[i]);
+	}
+	error_msg("expected [%d..%d] or [%s]", minval, maxval, names_buf.buffer);
+	gbuf_free(&names_buf);
 	return 0;
 }
 
@@ -224,8 +234,11 @@ static int parse_bool(const char *buf, int *val)
 /* this is used as id in struct cmus_opt */
 enum format_id {
 	FMT_CLIPPED_TEXT,
-	FMT_CURRENT,
 	FMT_CURRENT_ALT,
+	FMT_CURRENT,
+	FMT_HEADING_ALBUM,
+	FMT_HEADING_ARTIST,
+	FMT_HEADING_PLAYLIST,
 	FMT_STATUSLINE,
 	FMT_PLAYLIST,
 	FMT_PLAYLIST_ALT,
@@ -252,25 +265,28 @@ static const struct {
 	[FMT_CLIPPED_TEXT]	= { "format_clipped_text"	, "…"							},
 	[FMT_CURRENT_ALT]	= { "altformat_current"		, " %F "						},
 	[FMT_CURRENT]		= { "format_current"		, " %a - %l%! - %n. %t%= %y "				},
+	[FMT_HEADING_ALBUM]	= { "format_heading_album"	, "%a - %l%= %y %{duration}"				},
+	[FMT_HEADING_ARTIST]	= { "format_heading_artist"	, "%a%= %{duration}"					},
+	[FMT_HEADING_PLAYLIST]	= { "format_heading_playlist"	, "%{?!panel?Playlist - }%{title}%= %{duration}    "	},
 	[FMT_STATUSLINE]	= { "format_statusline"		,
 		" %{status} %{?show_playback_position?%{position} %{?duration?/ %{duration} }?%{?duration?%{duration} }}"
-		"- %{total} %{?bpm>0?at %{bpm} BPM }"
-		"%{?volume>=0?vol: %{?lvolume!=rvolume?%{lvolume},%{rvolume} ?%{volume} }}"
+		"%{?bpm>0?at %{bpm} BPM }"
 		"%{?stream?buf: %{buffer} }"
 		"%{?show_current_bitrate & bitrate>=0? %{bitrate} kbps }"
-		"%="
-		"%{?repeat_current?repeat current?%{?play_library?%{playlist_mode} from %{?play_sorted?sorted }library?playlist}}"
-		" | %1{continue}%1{follow}%1{repeat}%1{shuffle} "
+		"%= "
+		"%{?repeat_current?repeat current?%{?play_library?%{?playlist_mode!=\"all\"?%{playlist_mode} from }%{?play_sorted?sorted }library?playlist}} | "
+		"%{?volume>=0?%{?lvolume!=rvolume?%{lvolume}%% %{rvolume}?%{volume}}%% | }"
+		"%1{continue}%1{follow}%1{repeat}%1{shuffle} "
 	},
-	[FMT_PLAYLIST_ALT]	= { "altformat_playlist"	, " %f%= %d "						},
+	[FMT_PLAYLIST_ALT]	= { "altformat_playlist"	, " %f%= %d %{?X!=0?%3X ?    }"				},
 	[FMT_PLAYLIST]		= { "format_playlist"		, " %-21%a %3n. %t%= %y %d %{?X!=0?%3X ?    }"		},
 	[FMT_PLAYLIST_VA]	= { "format_playlist_va"	, " %-21%A %3n. %t (%a)%= %y %d %{?X!=0?%3X ?    }"	},
 	[FMT_TITLE_ALT]		= { "altformat_title"		, "%f"							},
 	[FMT_TITLE]		= { "format_title"		, "%a - %l - %t (%y)"					},
-	[FMT_TRACKWIN_ALBUM]	= { "format_trackwin_album"	, " %l %= %{albumduration} "				},
+	[FMT_TRACKWIN_ALBUM]	= { "format_trackwin_album"	, " %l %= %y %{duration} "				},
 	[FMT_TRACKWIN_ALT]	= { "altformat_trackwin"	, " %f%= %d "						},
-	[FMT_TRACKWIN]		= { "format_trackwin"		, "%3n. %t%= %y %d "					},
-	[FMT_TRACKWIN_VA]	= { "format_trackwin_va"	, "%3n. %t (%a)%= %y %d "				},
+	[FMT_TRACKWIN]		= { "format_trackwin"		, "%3n. %t%= %d "					},
+	[FMT_TRACKWIN_VA]	= { "format_trackwin_va"	, "%3n. %t (%a)%= %d "					},
 	[FMT_TREEWIN]		= { "format_treewin"		, "  %l"						},
 	[FMT_TREEWIN_ARTIST]	= { "format_treewin_artist"	, "%a"							},
 	[FMT_TREEWIN_FLAT]	= { "format_treewin_flat"	, "%-35%a: %l"						},
@@ -1541,6 +1557,12 @@ static char **id_to_fmt(enum format_id id)
 		return &track_win_alt_format;
 	case FMT_CURRENT:
 		return &current_format;
+	case FMT_HEADING_ALBUM:
+		return &heading_album_format;
+	case FMT_HEADING_ARTIST:
+		return &heading_artist_format;
+	case FMT_HEADING_PLAYLIST:
+		return &heading_playlist_format;
 	case FMT_PLAYLIST:
 		return &list_win_format;
 	case FMT_PLAYLIST_VA:
