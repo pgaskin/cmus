@@ -3,7 +3,7 @@ cmus — C\* Music Player
 
 https://cmus.github.io/
 
-[![Build Status](https://github.com/cmus/cmus/actions/workflows/build.yml/badge.svg)](https://github.com/cmus/cmus/actions/workflows/build.yml)
+[![Build Status](https://travis-ci.org/cmus/cmus.svg?branch=master)](https://travis-ci.org/cmus/cmus)
 
 Copyright © 2004-2008 Timo Hirvonen <tihirvon@gmail.com>
 
