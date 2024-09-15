@@ -1388,7 +1388,7 @@ static void set_progress_bar(void *data, const char *buf)
 static void toggle_progress_bar(void *data)
 {
 	progress_bar++;
-	progress_bar %= 5;
+	progress_bar %= NR_PROGRESS_BAR_MODES;
 	update_statusline();
 }
 
