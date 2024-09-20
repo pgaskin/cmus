@@ -141,6 +141,7 @@ static int ffmpeg_open(struct input_plugin_data *ip_data)
 	int err = 0;
 	int i;
 	int stream_index = -1;
+	int out_sample_rate;
 	AVCodec const *codec;
 	AVCodecContext *cc = NULL;
 	AVFormatContext *ic = NULL;
@@ -237,6 +238,7 @@ static int ffmpeg_open(struct input_plugin_data *ip_data)
 	priv->output = ffmpeg_output_create();
 
 	/* Prepare for resampling. */
+	out_sample_rate = min_u(cc->sample_rate, 384000);
 	swr = swr_alloc();
 #if LIBAVCODEC_VERSION_MAJOR >= 60
 	if (cc->ch_layout.order == AV_CHANNEL_ORDER_UNSPEC)
@@ -248,15 +250,15 @@ static int ffmpeg_open(struct input_plugin_data *ip_data)
 	av_opt_set_int(swr, "out_channel_layout", av_get_default_channel_layout(cc->channels), 0);
 #endif
 	av_opt_set_int(swr, "in_sample_rate",     cc->sample_rate, 0);
-	av_opt_set_int(swr, "out_sample_rate",    cc->sample_rate, 0);
+	av_opt_set_int(swr, "out_sample_rate",    out_sample_rate, 0);
 	av_opt_set_sample_fmt(swr, "in_sample_fmt",  cc->sample_fmt, 0);
 	priv->swr = swr;
 
 	ip_data->private = priv;
 #if LIBAVCODEC_VERSION_MAJOR >= 60
-	ip_data->sf = sf_rate(cc->sample_rate) | sf_channels(cc->ch_layout.nb_channels);
+	ip_data->sf = sf_rate(out_sample_rate) | sf_channels(cc->ch_layout.nb_channels);
 #else
-	ip_data->sf = sf_rate(cc->sample_rate) | sf_channels(cc->channels);
+	ip_data->sf = sf_rate(out_sample_rate) | sf_channels(cc->channels);
 #endif
 	switch (cc->sample_fmt) {
 	case AV_SAMPLE_FMT_U8:
@@ -304,8 +306,8 @@ static int ffmpeg_close(struct input_plugin_data *ip_data)
  * This returns the number of bytes added to the buffer.
  * It returns < 0 on error.  0 on EOF.
  */
-static int ffmpeg_fill_buffer(AVFormatContext *ic, AVCodecContext *cc, struct ffmpeg_input *input,
-			      struct ffmpeg_output *output, SwrContext *swr)
+static int ffmpeg_fill_buffer(struct input_plugin_data *ip_data, AVFormatContext *ic, AVCodecContext *cc,
+			      struct ffmpeg_input *input, struct ffmpeg_output *output, SwrContext *swr)
 {
 #if LIBAVCODEC_VERSION_MAJOR >= 56
 	AVFrame *frame = av_frame_alloc();
@@ -392,9 +394,9 @@ static int ffmpeg_fill_buffer(AVFormatContext *ic, AVCodecContext *cc, struct ff
 				res = 0;
 			output->buffer_pos = output->buffer;
 #if LIBAVCODEC_VERSION_MAJOR >= 60
-			output->buffer_used_len = res * cc->ch_layout.nb_channels * sizeof(int16_t);
+			output->buffer_used_len = res * cc->ch_layout.nb_channels * sf_get_sample_size(ip_data->sf);
 #else
-			output->buffer_used_len = res * cc->channels * sizeof(int16_t);
+			output->buffer_used_len = res * cc->channels * sf_get_sample_size(ip_data->sf);
 #endif
 #if LIBAVCODEC_VERSION_MAJOR >= 56
 			av_frame_free(&frame);
@@ -416,7 +418,7 @@ static int ffmpeg_read(struct input_plugin_data *ip_data, char *buffer, int coun
 	int out_size;
 
 	if (output->buffer_used_len == 0) {
-		rc = ffmpeg_fill_buffer(priv->input_context, priv->codec_context,
+		rc = ffmpeg_fill_buffer(ip_data, priv->input_context, priv->codec_context,
 				priv->input, priv->output, priv->swr);
 		if (rc <= 0) {
 			return rc;
@@ -542,9 +544,9 @@ const struct input_plugin_ops ip_ops = {
 
 const int ip_priority = 30;
 const char *const ip_extensions[] = {
-	"aa", "aac", "ac3", "aif", "aifc", "aiff", "ape", "au", "fla", "flac",
-	"m4a", "m4b", "mka", "mkv", "mp+", "mp2", "mp3", "mp4", "mpc", "mpp",
-	"ogg", "opus", "shn", "tak", "tta", "wav", "webm", "wma", "wv",
+	"aa", "aac", "ac3", "aif", "aifc", "aiff", "ape", "au", "dsf", "fla",
+	"flac", "m4a", "m4b", "mka", "mkv", "mp+", "mp2", "mp3", "mp4", "mpc",
+	"mpp", "ogg", "opus", "shn", "tak", "tta", "wav", "webm", "wma", "wv",
 #ifdef USE_FALLBACK_IP
 	"*",
 #endif
