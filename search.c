@@ -22,6 +22,7 @@
 #include "ui_curses.h"
 #include "convert.h"
 #include "options.h"
+#include "debug.h"
 
 struct searchable {
 	void *data;
@@ -39,7 +40,7 @@ static int advance(struct searchable *s, struct iter *iter,
 			*iter = s->head;
 			if (!s->ops.get_next(iter))
 				return 0;
-			*wrapped = 1;
+			*wrapped += 1;
 		}
 	} else {
 		if (!s->ops.get_prev(iter)) {
@@ -48,7 +49,7 @@ static int advance(struct searchable *s, struct iter *iter,
 			*iter = s->head;
 			if (!s->ops.get_prev(iter))
 				return 0;
-			*wrapped = 1;
+			*wrapped += 1;
 		}
 	}
 	return 1;
@@ -76,6 +77,38 @@ static int do_u_search(struct searchable *s, struct iter *iter, const char *text
 		}
 		if (!advance(s, iter, dir, &wrapped) || iters_equal(iter, &start))
 			return 0;
+		/**
+		 * HACK: for forward+reverse tree (i.e., view=1 tree_search_ops)
+		 * `//` or `??` searches (i.e., cmd_search_start or
+		 * cmd_search_b_start with search_restricted=1) starting from
+		 * the current item (i.e., beginning == 0 in search) with
+		 * wrapping enabled (i.e., wrap_search == 1), advance never
+		 * seems to reach `iters_equal(iter, &start)` (note: start =
+		 * *iter = s->ops.get_current()), causing it to keep wrapping
+		 * infinitely when there's no match (cmus/cmus#1332)...
+		 *
+		 * to prevent this, we keep track of the number of times it
+		 * wrapped and return if it's our second time (i.e., we've
+		 * already gone past the current item once and possibly a bit
+		 * further)
+		 *
+		 * this workaround results in a little bit of extra work if
+		 * there's no match, and is obviously not a proper bugfix, but
+		 * it works around the issue for now
+		 *
+		 * to reproduce this bug, use the '//' or '??' search modes with
+		 * wrap_search=1 and a query which doesn't match anything (try
+		 * '^' or '%')
+		 *
+		 * the real bug is probably somewhere in the
+		 * `rb_{next,prev}(&track->tree_node) == NULL ||
+		 * search_restricted` if cases and how it interacts with
+		 * tree_search_get_current
+		 */
+		if (wrapped > 1) {
+			d_print("fixme: bailing since search wrapped more than once without a match (see issue #1332)\n");
+			return 0;
+		}
 	}
 }
 
