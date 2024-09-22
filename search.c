@@ -22,6 +22,7 @@
 #include "ui_curses.h"
 #include "convert.h"
 #include "options.h"
+#include "debug.h"
 
 struct searchable {
 	void *data;
@@ -39,7 +40,7 @@ static int advance(struct searchable *s, struct iter *iter,
 			*iter = s->head;
 			if (!s->ops.get_next(iter))
 				return 0;
-			*wrapped = 1;
+			*wrapped += 1;
 		}
 	} else {
 		if (!s->ops.get_prev(iter)) {
@@ -48,7 +49,7 @@ static int advance(struct searchable *s, struct iter *iter,
 			*iter = s->head;
 			if (!s->ops.get_prev(iter))
 				return 0;
-			*wrapped = 1;
+			*wrapped += 1;
 		}
 	}
 	return 1;
@@ -76,6 +77,18 @@ static int do_u_search(struct searchable *s, struct iter *iter, const char *text
 		}
 		if (!advance(s, iter, dir, &wrapped) || iters_equal(iter, &start))
 			return 0;
+		/**
+		 * we've previously had issues where buggy get_next/get_prev is
+		 * mismatched with get_current, resulting in iters_equal always
+		 * returning false (see cmus/cmus#1332)... since it's never
+		 * correct to wrap more than once (we have already checked all
+		 * items at this point), log a debug message (it's a bug in the
+		 * searchable_ops implementation) and stop searching
+		 */
+		if (wrapped > 1) {
+			d_print("fixme: bailing since search wrapped more than once without a match\n");
+			return 0;
+		}
 	}
 }
 
