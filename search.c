@@ -78,12 +78,9 @@ static int do_u_search(struct searchable *s, struct iter *iter, const char *text
 		if (!advance(s, iter, dir, &wrapped) || iters_equal(iter, &start))
 			return 0;
 		/**
-		 * we've previously had issues where buggy get_next/get_prev is
-		 * mismatched with get_current, resulting in iters_equal always
-		 * returning false (see cmus/cmus#1332)... since it's never
-		 * correct to wrap more than once (we have already checked all
-		 * items at this point), log a debug message (it's a bug in the
-		 * searchable_ops implementation) and stop searching
+		 * workaround for buggy implementations of search_ops where
+		 * get_next/get_prev never equals the initial get_current
+		 * (#1332)
 		 */
 		if (wrapped > 1) {
 			d_print("fixme: bailing since search wrapped more than once without a match\n");
