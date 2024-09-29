@@ -1209,7 +1209,7 @@ rewind_offset (5) [-1-9999]
 scroll_offset (2) [0-9999]
 	Minimal number of screen lines to keep above and below the cursor.
 
-search_start_beginning (true)
+search_resets_position (true)
 	Starts searches at the beginning of the current view rather than the
 	current item.
 
