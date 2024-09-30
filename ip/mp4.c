@@ -26,7 +26,6 @@
 #endif
 #include "../comment.h"
 #include "../utils.h"
-#include "aac.h"
 
 #if USE_MPEG4IP
 #include <mp4.h>
@@ -41,6 +40,22 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <strings.h>
+
+static inline channel_position_t channel_position_aac(unsigned char c)
+{
+	switch (c) {
+	case FRONT_CHANNEL_CENTER:	return CHANNEL_POSITION_FRONT_CENTER;
+	case FRONT_CHANNEL_LEFT:	return CHANNEL_POSITION_FRONT_LEFT;
+	case FRONT_CHANNEL_RIGHT:	return CHANNEL_POSITION_FRONT_RIGHT;
+	case SIDE_CHANNEL_LEFT:		return CHANNEL_POSITION_SIDE_LEFT;
+	case SIDE_CHANNEL_RIGHT:	return CHANNEL_POSITION_SIDE_RIGHT;
+	case BACK_CHANNEL_LEFT:		return CHANNEL_POSITION_REAR_LEFT;
+	case BACK_CHANNEL_RIGHT:	return CHANNEL_POSITION_REAR_RIGHT;
+	case BACK_CHANNEL_CENTER:	return CHANNEL_POSITION_REAR_CENTER;
+	case LFE_CHANNEL:		return CHANNEL_POSITION_LFE;
+	default:			return CHANNEL_POSITION_INVALID;
+	}
+}
 
 /* no perfect fallback, for example faac uses only 1024 samples to prime */
 #define ENCODER_DELAY_DEFAULT 2112

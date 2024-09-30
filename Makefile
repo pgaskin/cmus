@@ -78,7 +78,6 @@ opus-objs		:= ip/opus.lo
 wavpack-objs		:= ip/wavpack.lo
 wav-objs		:= ip/wav.lo
 mp4-objs		:= ip/mp4.lo
-aac-objs		:= ip/aac.lo
 ffmpeg-objs		:= ip/ffmpeg.lo
 cue-objs		:= ip/cue.lo
 vtx-objs		:= ip/vtx.lo
@@ -95,7 +94,6 @@ ip-$(CONFIG_OPUS)	+= ip/opus.so
 ip-$(CONFIG_WAVPACK)	+= ip/wavpack.so
 ip-$(CONFIG_WAV)	+= ip/wav.so
 ip-$(CONFIG_MP4)	+= ip/mp4.so
-ip-$(CONFIG_AAC)	+= ip/aac.so
 ip-$(CONFIG_FFMPEG)	+= ip/ffmpeg.so
 ip-$(CONFIG_CUE)	+= ip/cue.so
 ip-$(CONFIG_VTX)	+= ip/vtx.so
@@ -111,7 +109,6 @@ $(vorbis-objs):		CFLAGS += $(VORBIS_CFLAGS)
 $(opus-objs):		CFLAGS += $(OPUS_CFLAGS)
 $(wavpack-objs):	CFLAGS += $(WAVPACK_CFLAGS)
 $(mp4-objs):		CFLAGS += $(MP4_CFLAGS)
-$(aac-objs):		CFLAGS += $(AAC_CFLAGS)
 $(ffmpeg-objs):		CFLAGS += $(FFMPEG_CFLAGS)
 $(vtx-objs):		CFLAGS += $(VTX_CFLAGS)
 
@@ -150,9 +147,6 @@ ip/wav.so: $(wav-objs) $(libcmus-y)
 
 ip/mp4.so: $(mp4-objs) $(libcmus-y)
 	$(call cmd,ld_dl,$(MP4_LIBS))
-
-ip/aac.so: $(aac-objs) $(libcmus-y)
-	$(call cmd,ld_dl,$(AAC_LIBS))
 
 ip/ffmpeg.so: $(ffmpeg-objs) $(libcmus-y)
 	$(call cmd,ld_dl,$(FFMPEG_LIBS))

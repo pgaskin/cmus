@@ -462,13 +462,6 @@ check_mp4()
 	return $?
 }
 
-check_aac()
-{
-	pkg_config AAC faad2 "" "-lfaad -lm" || return $?
-	check_header neaacdec.h $AAC_CFLAGS
-	return $?
-}
-
 check_ffmpeg()
 {
 	pkg_config FFMPEG "libavformat libavcodec libswresample" || return $?
@@ -567,7 +560,6 @@ Options:
   DEBUG           Debugging level (0-2)  [$DEBUG]
 
 Optional Features: y/n
-  CONFIG_AAC            AAC (.aac, audio/aac, audio/aacp)               [auto]
   CONFIG_AAUDIO         Android 8.0+ native audio output                [auto]
   CONFIG_ALSA           ALSA                                            [auto]
   CONFIG_AO             Libao cross-platform audio library              [auto]
@@ -654,7 +646,6 @@ check check_opus       CONFIG_OPUS
 check check_libsystemd CONFIG_MPRIS
 check check_wavpack    CONFIG_WAVPACK
 check check_mp4        CONFIG_MP4
-check check_aac        CONFIG_AAC
 check check_ffmpeg     CONFIG_FFMPEG
 check check_vtx        CONFIG_VTX
 # nothing to check, just validate the variable values
@@ -710,11 +701,11 @@ CFLAGS="${CFLAGS} -DHAVE_CONFIG"
 
 makefile_vars bindir datadir libdir mandir docdir exampledir
 makefile_vars \
-	CONFIG_AAC CONFIG_ALSA CONFIG_AO CONFIG_ARTS CONFIG_CDIO \
-	CONFIG_COREAUDIO CONFIG_CUE CONFIG_FFMPEG CONFIG_FLAC CONFIG_JACK \
-	CONFIG_MAD CONFIG_MIKMOD CONFIG_MODPLUG CONFIG_MP4 CONFIG_MPC \
-	CONFIG_MPRIS CONFIG_OPUS CONFIG_OSS CONFIG_PULSE CONFIG_ROAR \
-	CONFIG_SAMPLERATE CONFIG_SNDIO CONFIG_SUN CONFIG_VORBIS CONFIG_VTX \
-	CONFIG_WAV CONFIG_WAVEOUT CONFIG_WAVPACK CONFIG_BASS CONFIG_AAUDIO
+	CONFIG_ALSA CONFIG_AO CONFIG_ARTS CONFIG_CDIO CONFIG_COREAUDIO \
+	CONFIG_CUE CONFIG_FFMPEG CONFIG_FLAC CONFIG_JACK CONFIG_MAD \
+	CONFIG_MODPLUG CONFIG_MP4 CONFIG_MPC CONFIG_MPRIS CONFIG_OPUS \
+	CONFIG_OSS CONFIG_PULSE CONFIG_ROAR CONFIG_SAMPLERATE CONFIG_SNDIO \
+	CONFIG_SUN CONFIG_VORBIS CONFIG_VTX CONFIG_WAV CONFIG_WAVEOUT \
+	CONFIG_WAVPACK CONFIG_BASS CONFIG_AAUDIO
 
 generate_config_mk
