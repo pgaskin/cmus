@@ -31,6 +31,7 @@
 #include "cmus.h"
 #include "lib.h"
 #include "pl_env.h"
+#include "ui_curses.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -74,6 +75,7 @@ static struct player_info player_info_priv = {
 	.metadata_changed = 0,
 	.status_changed = 0,
 	.position_changed = 0,
+	.position_seeked = 0,
 	.buffer_fill_changed = 0,
 };
 
@@ -548,6 +550,17 @@ static void _consumer_position_update(void)
 		player_info_priv.position_changed = 1;
 		player_info_priv_unlock();
 	}
+}
+
+/*
+ * position is seeked
+ */
+static void _player_position_seeked(void)
+{
+	player_info_priv_lock();
+	player_info_priv.position_seeked = 1;
+	player_info_priv_unlock();
+	_consumer_position_update();
 }
 
 /*
@@ -1293,7 +1306,7 @@ void player_seek(double offset, int relative, int start_playing)
 			reset_buffer();
 			consumer_pos = new_pos * buffer_second_size();
 			scale_pos = consumer_pos;
-			_consumer_position_update();
+			_player_position_seeked();
 			if (stopped && !start_playing) {
 				_producer_pause();
 				_consumer_pause();
@@ -1304,7 +1317,6 @@ void player_seek(double offset, int relative, int start_playing)
 			d_print("error: ip_seek returned %d\n", rc);
 		}
 	}
-	mpris_seeked();
 	player_unlock();
 }
 
@@ -1313,7 +1325,7 @@ void player_seek(double offset, int relative, int start_playing)
  */
 void player_set_op(const char *name)
 {
-	int rc;
+	int rc = 0;
 
 	player_lock();
 
@@ -1327,11 +1339,21 @@ void player_set_op(const char *name)
 	if (name) {
 		d_print("setting op to '%s'\n", name);
 		rc = op_select(name);
-	} else {
-		/* first initialized plugin */
+	}
+
+	/* when at startup and plugin is null, op_select_any() */
+	if (!ui_initialized && op_get_current() == NULL) {
+		if (rc)
+			/*
+			 * error if we are falling back because
+			 * the specified init plugin failed
+			 */
+			player_op_error(rc, "selecting output plugin '%s'", name);
+
 		d_print("selecting first initialized op\n");
 		rc = op_select_any();
 	}
+
 	if (rc) {
 		_consumer_status_update(CS_STOPPED);
 
@@ -1480,6 +1502,7 @@ void player_info_snapshot(void)
 	player_info_priv.metadata_changed = 0;
 	player_info_priv.status_changed = 0;
 	player_info_priv.position_changed = 0;
+	player_info_priv.position_seeked = 0;
 	player_info_priv.buffer_fill_changed = 0;
 	player_info_priv.error_msg = NULL;
 

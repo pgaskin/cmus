@@ -28,60 +28,50 @@
 #include <string.h>
 #include <limits.h>
 
-int u_strcoll(const char *str1, const char *str2)
+#ifdef __APPLE__
+#include <CoreFoundation/CoreFoundation.h>
+#endif
+
+/* Helper function to create collation key using CoreFoundation on macOS */
+#ifdef __APPLE__
+static char *cf_create_collation_key(const char *str) 
 {
-	int result;
-
-	if (using_utf8) {
-		result = strcoll(str1, str2);
-	} else {
-		char *str1_locale = NULL, *str2_locale = NULL;
-
-		convert(str1, -1, &str1_locale, -1, charset, "UTF-8");
-		convert(str2, -1, &str2_locale, -1, charset, "UTF-8");
-
-		if (str1_locale && str2_locale)
-			result = strcoll(str1_locale, str2_locale);
-		else
-			result = strcmp(str1, str2);
-
-		if (str2_locale)
-			free(str2_locale);
-		if (str1_locale)
-			free(str1_locale);
+	char *result = NULL;
+	CFStringRef cfStr = CFStringCreateWithCString(NULL, str, kCFStringEncodingUTF8);
+	
+	if (cfStr) {
+		/* Get a representation that can be used for sorting */
+		CFMutableStringRef mStr = CFStringCreateMutableCopy(NULL, 0, cfStr);
+		if (mStr) {
+			CFStringNormalize(mStr, kCFStringNormalizationFormD);
+			
+			/* Convert back to C string */
+			size_t max_size = CFStringGetMaximumSizeForEncoding(CFStringGetLength(mStr), kCFStringEncodingUTF8) + 1;
+			result = xmalloc(max_size);
+			
+			if (!CFStringGetCString(mStr, result, max_size, kCFStringEncodingUTF8)) {
+				/* Fallback in case of conversion failure */
+				free(result);
+				result = NULL;
+			} 
+			
+			CFRelease(mStr);
+		}
+		CFRelease(cfStr);
 	}
-
+	
 	return result;
 }
-
-int u_strcasecoll(const char *str1, const char *str2)
-{
-	char *cf_a, *cf_b;
-	int res;
-
-	cf_a = u_casefold(str1);
-	cf_b = u_casefold(str2);
-
-	res = u_strcoll(cf_a, cf_b);
-
-	free(cf_b);
-	free(cf_a);
-
-	return res;
-}
-
-int u_strcasecoll0(const char *str1, const char *str2)
-{
-	if (!str1)
-		return str2 ? -1 : 0;
-	if (!str2)
-		return 1;
-
-	return u_strcasecoll(str1, str2);
-}
+#endif
 
 char *u_strcoll_key(const char *str)
 {
+#ifdef __APPLE__
+	/* On macOS, create a collation key using CoreFoundation */
+	char *result = cf_create_collation_key(str);
+	return result;
+#else
+	/* For other platforms, use the original implementation */
 	char *result = NULL;
 
 	if (using_utf8) {
@@ -117,6 +107,7 @@ char *u_strcoll_key(const char *str)
 	}
 
 	return result;
+#endif
 }
 
 char *u_strcasecoll_key(const char *str)
